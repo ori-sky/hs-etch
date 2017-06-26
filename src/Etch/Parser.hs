@@ -30,9 +30,9 @@ primaryParser = functionParser <|> tupleParser
 
 functionParser :: Parser AST
 functionParser = Function <$> tupleParser
-                          <* L.charParser '{'
-                          <*> many definitionParser
-                          <* L.charParser '}'
+                          <* L.charsParser "->"
+                          <*> blockParser
+              <|> Function (Tuple []) <$> blockParser
 
 tupleParser :: Parser AST
 tupleParser = Tuple <$ L.charParser '('
@@ -40,6 +40,9 @@ tupleParser = Tuple <$ L.charParser '('
                     <* L.charParser ')'
            <|> integerLiteralParser
            <|> identifierParser
+
+blockParser :: Parser AST
+blockParser = Block <$ L.charParser '{' <*> many definitionParser <* L.charParser '}'
 
 integerLiteralParser :: Parser AST
 integerLiteralParser = IntegerLiteral <$> L.integerParser

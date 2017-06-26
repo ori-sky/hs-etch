@@ -27,6 +27,9 @@ whitespaceParser = skipSpace
 charParser :: Char -> Parser ()
 charParser c = char c *> whitespaceParser
 
+charsParser :: [Char] -> Parser ()
+charsParser cs = traverse char cs *> whitespaceParser
+
 integerParser :: Parser Integer
 integerParser = signed decimal <* whitespaceParser
 
