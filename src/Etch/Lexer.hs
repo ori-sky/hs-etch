@@ -17,6 +17,10 @@ identifierRestChars :: [Char]
 identifierRestChars = [ '0', '1', '2', '3', '4', '5', '6', '7', '8', '9'
                       ] ++ identifierFirstChars
 
+-- minus character must be at start of list
+operatorChars :: [Char]
+operatorChars = [ '-', '+', '*', '/', '<', '>' ]
+
 whitespaceParser :: Parser ()
 whitespaceParser = skipSpace
 
@@ -31,3 +35,7 @@ identifierParser = BS.cons
                 <$> satisfy (inClass identifierFirstChars)
                 <*> Atto.takeWhile (inClass identifierRestChars)
                 <* whitespaceParser
+
+operatorParser :: Parser ByteString
+operatorParser = Atto.takeWhile1 (inClass operatorChars)
+              <* whitespaceParser

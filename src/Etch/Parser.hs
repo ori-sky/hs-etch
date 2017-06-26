@@ -1,3 +1,5 @@
+{-# LANGUAGE OverloadedStrings #-}
+
 module Etch.Parser where
 
 import Control.Applicative ((<|>), many)
@@ -10,26 +12,37 @@ parse :: ByteString -> Either String [AST]
 parse = parseOnly (many definitionParser)
 
 definitionParser :: Parser AST
-definitionParser = Definition
-                <$> identifierParser
-                <* L.charParser '='
-                <*> primaryParser
+definitionParser = Definition <$> identifierParser
+                              <* L.charParser '='
+                              <*> definitionParser
+                <|> operatorParser
+
+operatorParser :: Parser AST
+operatorParser = do
+        lhs <- primaryParser
+        op <- L.operatorParser
+        rhs <- operatorParser
+        pure (Call op (Tuple [lhs, rhs]))
+    <|> primaryParser
 
 primaryParser :: Parser AST
-primaryParser = functionParser
-             <|> identifierParser
-             <|> integerLiteralParser
+primaryParser = functionParser <|> tupleParser
 
 functionParser :: Parser AST
-functionParser = Function
-              <$ L.charParser '('
-              <* L.charParser ')'
-              <* L.charParser '{'
-              <*> many definitionParser
-              <* L.charParser '}'
+functionParser = Function <$> tupleParser
+                          <* L.charParser '{'
+                          <*> many definitionParser
+                          <* L.charParser '}'
 
-identifierParser :: Parser AST
-identifierParser = Identifier <$> L.identifierParser
+tupleParser :: Parser AST
+tupleParser = Tuple <$ L.charParser '('
+                    <*> operatorParser `sepBy` L.charParser ','
+                    <* L.charParser ')'
+           <|> integerLiteralParser
+           <|> identifierParser
 
 integerLiteralParser :: Parser AST
 integerLiteralParser = IntegerLiteral <$> L.integerParser
+
+identifierParser :: Parser AST
+identifierParser = Identifier <$> L.identifierParser
