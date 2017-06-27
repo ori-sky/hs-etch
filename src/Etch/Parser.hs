@@ -9,13 +9,7 @@ import Etch.AST
 import qualified Etch.Lexer as L
 
 parse :: ByteString -> Either String [AST]
-parse = parseOnly (many definitionParser)
-
-definitionParser :: Parser AST
-definitionParser = Definition <$> identifierParser
-                              <* L.charParser '='
-                              <*> definitionParser
-                <|> operatorParser
+parse = parseOnly (many operatorParser)
 
 operatorParser :: Parser AST
 operatorParser = do
@@ -42,7 +36,7 @@ tupleParser = Tuple <$ L.charParser '('
            <|> identifierParser
 
 blockParser :: Parser AST
-blockParser = Block <$ L.charParser '{' <*> many definitionParser <* L.charParser '}'
+blockParser = Block <$ L.charParser '{' <*> many operatorParser <* L.charParser '}'
 
 integerLiteralParser :: Parser AST
 integerLiteralParser = IntegerLiteral <$> L.integerParser

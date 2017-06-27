@@ -18,10 +18,13 @@ library
   exposed-modules:     Etch.AST
                      , Etch.Lexer
                      , Etch.Parser
+                     , Etch.CodeGen
   build-depends:       base >= 4.7 && < 5
                      , bytestring >= 0.10
                      , attoparsec >= 0.13
                      , llvm-hs >= 4.2
+                     , llvm-hs-pure >= 4.1
+  extra-libraries:     stdc++
   default-language:    Haskell2010
 
 executable etchy
