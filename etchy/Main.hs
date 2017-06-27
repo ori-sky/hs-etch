@@ -14,7 +14,7 @@ main = do
         "-"  -> pure stdin
         path -> openBinaryFile path ReadMode
     eASTs <- P.parse <$> hGetContents handle
-    pPrint eASTs
+    --pPrint eASTs
     case eASTs of
         Left str   -> putStrLn ("failed to parse: " ++ str)
         Right asts -> CG.codeGen asts

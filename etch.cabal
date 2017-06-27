@@ -21,6 +21,7 @@ library
                      , Etch.CodeGen
   build-depends:       base >= 4.7 && < 5
                      , bytestring >= 0.10
+                     , mtl >= 2.2
                      , attoparsec >= 0.13
                      , llvm-hs >= 4.2
                      , llvm-hs-pure >= 4.1
