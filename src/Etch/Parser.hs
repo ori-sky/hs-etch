@@ -25,8 +25,7 @@ primaryParser = functionParser <|> tupleParser
 functionParser :: Parser AST
 functionParser = Function <$> tupleParser
                           <* L.charsParser "->"
-                          <*> blockParser
-              <|> Function (Tuple []) <$> blockParser
+                          <*> operatorParser
 
 tupleParser :: Parser AST
 tupleParser = Tuple <$ L.charParser '('
@@ -34,6 +33,7 @@ tupleParser = Tuple <$ L.charParser '('
                     <* L.charParser ')'
            <|> integerLiteralParser
            <|> identifierParser
+           <|> blockParser
 
 blockParser :: Parser AST
 blockParser = Block <$ L.charParser '{' <*> many operatorParser <* L.charParser '}'

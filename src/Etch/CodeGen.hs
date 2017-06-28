@@ -21,20 +21,15 @@ codeGen asts = L.withContext $ \context -> do
   where astM = execState (traverse_ astGen asts) L.AST.defaultModule
 
 astGen :: AST -> State L.AST.Module ()
-astGen (Call "=" (Tuple [ Identifier name
-                        , Function (Tuple args) (Block asts)
-                        ])) =
+astGen (Call "=" (Tuple [Identifier name, val])) =
     addDefinition $ L.AST.GlobalDefinition $ L.AST.functionDefaults
         { L.AST.name       = L.AST.Name (ShortBS.toShort name)
         , L.AST.returnType = L.AST.i32
         }
-astGen (Call "=" (Tuple [ Identifier name
-                        , Function arg (Block asts)
-                        ])) =
-    addDefinition $ L.AST.GlobalDefinition $ L.AST.functionDefaults
-        { L.AST.name       = L.AST.Name (ShortBS.toShort name)
-        , L.AST.returnType = L.AST.i32
-        }
+  where block = case val of
+            Function _ b -> b
+            b@(Block _)  -> b
+astGen ast = error (show ast)
 
 addDefinition :: L.AST.Definition -> State L.AST.Module ()
 addDefinition def = do
