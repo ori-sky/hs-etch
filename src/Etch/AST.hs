@@ -7,4 +7,5 @@ data AST = Call ByteString AST
          | Tuple [AST]
          | Identifier ByteString
          | IntegerLiteral Integer
+         | StringLiteral ByteString
            deriving Show

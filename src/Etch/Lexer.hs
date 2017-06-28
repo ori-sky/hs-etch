@@ -33,6 +33,11 @@ charsParser cs = traverse char cs *> whitespaceParser
 integerParser :: Parser Integer
 integerParser = signed decimal <* whitespaceParser
 
+stringLiteralParser :: Parser ByteString
+stringLiteralParser = char '"' *> Atto.takeWhile (/= '"')
+                              <* char '"'
+                              <* whitespaceParser
+
 identifierParser :: Parser ByteString
 identifierParser = BS.cons
                 <$> satisfy (inClass identifierFirstChars)
