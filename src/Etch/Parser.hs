@@ -20,23 +20,18 @@ operatorParser = do
     <|> primaryParser
 
 primaryParser :: Parser AST
-primaryParser = functionParser <|> tupleParser
+primaryParser = blockParser
+             <|> tupleParser
+             <|> integerLiteralParser
+             <|> identifierParser
 
-functionParser :: Parser AST
-functionParser = Function <$> tupleParser
-                          <* L.charsParser "->"
-                          <*> operatorParser
+blockParser :: Parser AST
+blockParser = Block <$ L.charParser '{' <*> many operatorParser <* L.charParser '}'
 
 tupleParser :: Parser AST
 tupleParser = Tuple <$ L.charParser '('
                     <*> operatorParser `sepBy` L.charParser ','
                     <* L.charParser ')'
-           <|> integerLiteralParser
-           <|> identifierParser
-           <|> blockParser
-
-blockParser :: Parser AST
-blockParser = Block <$ L.charParser '{' <*> many operatorParser <* L.charParser '}'
 
 integerLiteralParser :: Parser AST
 integerLiteralParser = IntegerLiteral <$> L.integerParser

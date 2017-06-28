@@ -26,9 +26,6 @@ astGen (Call "=" (Tuple [Identifier name, val])) =
         { L.AST.name       = L.AST.Name (ShortBS.toShort name)
         , L.AST.returnType = L.AST.i32
         }
-  where block = case val of
-            Function _ b -> b
-            b@(Block _)  -> b
 astGen ast = error (show ast)
 
 addDefinition :: L.AST.Definition -> State L.AST.Module ()
