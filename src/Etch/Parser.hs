@@ -9,30 +9,32 @@ import Etch.AST
 import qualified Etch.Lexer as L
 
 parse :: ByteString -> Either String [AST]
-parse = parseOnly (many operatorParser)
+parse = parseOnly (many exprParser)
+
+exprParser :: Parser AST
+exprParser = operatorParser <|> primaryParser
 
 operatorParser :: Parser AST
 operatorParser = do
         lhs <- primaryParser
         op <- L.operatorParser
-        rhs <- operatorParser
+        rhs <- exprParser
         pure (Call op (Tuple [lhs, rhs]))
-    <|> primaryParser
 
 primaryParser :: Parser AST
 primaryParser = blockParser
-             <|> tupleParser
+             <|> tupleParser exprParser
              <|> identifierParser
              <|> integerLiteralParser
              <|> stringLiteralParser
 
 blockParser :: Parser AST
-blockParser = Block <$ L.charParser '{' <*> many operatorParser <* L.charParser '}'
+blockParser = Block <$ L.charParser '{' <*> many exprParser <* L.charParser '}'
 
-tupleParser :: Parser AST
-tupleParser = Tuple <$ L.charParser '('
-                    <*> operatorParser `sepBy` L.charParser ','
-                    <* L.charParser ')'
+tupleParser :: Parser AST -> Parser AST
+tupleParser elemP = Tuple <$ L.charParser '('
+                          <*> elemP `sepBy` L.charParser ','
+                          <* L.charParser ')'
 
 identifierParser :: Parser AST
 identifierParser = Identifier <$> L.identifierParser
