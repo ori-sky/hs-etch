@@ -1,0 +1,54 @@
+name:                etch
+version:             0.1.0.0
+github:              "shockkolate/etch"
+license:             Apache-2.0
+author:              "David Farrell"
+maintainer:          "David Farrell <shokku.ra@gmail.com>"
+copyright:           "2017-2018 David Farrell"
+
+extra-source-files:
+- README.md
+- ChangeLog.md
+
+# Metadata used when publishing your package
+# synopsis:            Short description of your package
+category:            Code Generation
+
+# To avoid duplicated efforts in documentation and dealing with the
+# complications of embedding Haddock markup inside cabal files, it is
+# common to point users to the README.md file.
+description:         Please see the README on GitHub at <https://github.com/shockkolate/etch#readme>
+
+dependencies:
+- base >= 4.7 && < 5
+- bytestring >= 0.10
+- mtl >= 2.2
+- attoparsec >= 0.13
+- llvm-hs >= 7.0
+- llvm-hs-pure >= 7.0
+
+library:
+  source-dirs: src
+
+executables:
+  etchy:
+    main:                Main.hs
+    source-dirs:         etchy
+    ghc-options:
+    - -threaded
+    - -rtsopts
+    - -with-rtsopts=-N
+    dependencies:
+    - pretty-show >= 1.6
+    - etch
+
+tests:
+  etch-test:
+    main:                Spec.hs
+    source-dirs:         test
+    ghc-options:
+    - -threaded
+    - -rtsopts
+    - -with-rtsopts=-N
+    dependencies:
+    - etch

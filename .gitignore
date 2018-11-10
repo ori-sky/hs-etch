@@ -1,5 +1,5 @@
-# vim swap files
-.*.swp
+.stack-work/
+etch.cabal
+*~
 
-# stack work directory
-.stack-work
+.*.swp
