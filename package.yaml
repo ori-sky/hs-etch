@@ -21,7 +21,9 @@ description:         Please see the README on GitHub at <https://github.com/shoc
 
 dependencies:
 - base >= 4.7 && < 5
+- text
 - bytestring >= 0.10
+- unordered-containers
 - mtl >= 2.2
 - attoparsec >= 0.13
 - llvm-hs >= 7.0
