@@ -2,13 +2,13 @@ module Etch.Module where
 
 import Etch.AST
 
-data Module = Module { moduleName       :: String
-                     , moduleSourceFile :: String
-                     , moduleASTs       :: [AST]
+data Module = Module { moduleName        :: String
+                     , moduleSourceFile  :: String
+                     , moduleDefinitions :: [Def]
                      }
 
-defaultModule :: String -> [AST] -> Module
-defaultModule srcFile asts = Module { moduleName       = srcFile
-                                    , moduleSourceFile = srcFile
-                                    , moduleASTs       = asts
+defaultModule :: String -> [Def] -> Module
+defaultModule srcFile defs = Module { moduleName        = srcFile
+                                    , moduleSourceFile  = srcFile
+                                    , moduleDefinitions = defs
                                     }

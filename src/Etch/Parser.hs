@@ -2,45 +2,45 @@
 
 module Etch.Parser where
 
+import Data.Attoparsec.Text hiding (parse)
+import Data.Text
 import Control.Applicative ((<|>), many)
-import Data.ByteString.Char8
-import Data.Attoparsec.ByteString.Char8 hiding (parse)
-import Etch.AST
+import Control.Monad (when)
 import qualified Etch.Lexer as L
+import Etch.AST
 
-parse :: ByteString -> Either String [AST]
-parse = parseOnly (many exprParser)
+parse :: Text -> Either String [Def]
+parse text = parseOnly (many defParser) text
 
-exprParser :: Parser AST
-exprParser = operatorParser <|> primaryParser
+defParser :: Parser Def
+defParser = Def <$> L.identifierParser <* L.charParser '=' <*> exprParser
 
-operatorParser :: Parser AST
-operatorParser = do
-        lhs <- primaryParser
-        op <- L.operatorParser
-        rhs <- exprParser
-        pure (Call op (Tuple [lhs, rhs]))
+exprParser :: Parser Expr
+exprParser = OpExpr      <$> opParser
+         <|> PrimaryExpr <$> primaryParser
 
-primaryParser :: Parser AST
-primaryParser = blockParser
-             <|> tupleParser exprParser
-             <|> identifierParser
-             <|> integerLiteralParser
-             <|> stringLiteralParser
+opParser :: Parser Op
+opParser = do
+    lhs <- primaryParser
+    op  <- L.operatorParser
+    when (op == "->") (fail "operator `->` is reserved")
+    Op op lhs <$> exprParser
 
-blockParser :: Parser AST
-blockParser = Block <$ L.charParser '{' <*> many exprParser <* L.charParser '}'
+primaryParser :: Parser Primary
+primaryParser = BlockPrimary   <$> blockParser
+            <|> TuplePrimary   <$> tupleParser exprParser
+            <|> IdentPrimary   <$> L.identifierParser
+            <|> IntegerPrimary <$> L.integerParser
+            <|> StringPrimary  <$> L.stringLiteralParser
 
-tupleParser :: Parser AST -> Parser AST
-tupleParser elemP = Tuple <$ L.charParser '('
-                          <*> elemP `sepBy` L.charParser ','
-                          <* L.charParser ')'
+blockParser :: Parser Block
+blockParser = Block
+          <$> option [] (tupleParser L.identifierParser <* L.charsParser "->")
+          <*  L.charParser '{'
+          <*> many exprParser
+          <*  L.charParser '}'
 
-identifierParser :: Parser AST
-identifierParser = Identifier <$> L.identifierParser
-
-integerLiteralParser :: Parser AST
-integerLiteralParser = IntegerLiteral <$> L.integerParser
-
-stringLiteralParser :: Parser AST
-stringLiteralParser = StringLiteral <$> L.stringLiteralParser
+tupleParser :: Parser a -> Parser [a]
+tupleParser p = L.charParser '('
+             *> p `sepBy` L.charParser ','
+             <* L.charParser ')'

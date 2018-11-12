@@ -1,11 +1,23 @@
 module Etch.AST where
 
-import Data.ByteString.Char8 (ByteString)
+import Data.Text
 
-data AST = Call ByteString AST
-         | Block [AST]
-         | Tuple [AST]
-         | Identifier ByteString
-         | IntegerLiteral Integer
-         | StringLiteral ByteString
+data Def = Def Text Expr
            deriving Show
+
+data Expr = OpExpr Op
+          | PrimaryExpr Primary
+            deriving Show
+
+data Op = Op Text Primary Expr
+          deriving Show
+
+data Primary = BlockPrimary Block
+             | TuplePrimary [Expr]
+             | IdentPrimary Text
+             | IntegerPrimary Integer
+             | StringPrimary Text
+               deriving Show
+
+data Block = Block [Text] [Expr]
+             deriving Show

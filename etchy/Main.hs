@@ -2,9 +2,8 @@
 
 module Main where
 
-import Data.ByteString.Char8 (hGetContents)
-import Text.Show.Pretty (pPrint)
 import System.IO (IOMode(ReadMode), Handle, stdin, openBinaryFile)
+import Data.Text.IO (hGetContents)
 import System.Environment (getArgs)
 import qualified Etch.Parser as P
 import qualified Etch.CodeGen as CG
@@ -17,7 +16,7 @@ main = do
     let srcFile = getSrcFile args
     P.parse <$> hGetContents handle >>= \case
         Left str   -> putStrLn ("failed to parse: " ++ str)
-        Right asts -> putStrLn =<< CG.codeGen (M.defaultModule srcFile asts)
+        Right defs -> putStrLn =<< CG.codeGen (M.defaultModule srcFile defs)
 
 getHandle :: [String] -> IO Handle
 getHandle = \case

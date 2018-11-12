@@ -1,7 +1,7 @@
 module Etch.Lexer where
 
-import Data.ByteString.Char8 as BS
-import Data.Attoparsec.ByteString.Char8 as Atto
+import Data.Attoparsec.Text as Atto
+import Data.Text
 
 identifierFirstChars :: [Char]
 identifierFirstChars = [ 'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K'
@@ -33,17 +33,17 @@ charsParser cs = traverse char cs *> whitespaceParser
 integerParser :: Parser Integer
 integerParser = signed decimal <* whitespaceParser
 
-stringLiteralParser :: Parser ByteString
+stringLiteralParser :: Parser Text
 stringLiteralParser = char '"' *> Atto.takeWhile (/= '"')
                               <* char '"'
                               <* whitespaceParser
 
-identifierParser :: Parser ByteString
-identifierParser = BS.cons
+identifierParser :: Parser Text
+identifierParser = cons
                 <$> satisfy (inClass identifierFirstChars)
                 <*> Atto.takeWhile (inClass identifierRestChars)
                 <* whitespaceParser
 
-operatorParser :: Parser ByteString
+operatorParser :: Parser Text
 operatorParser = Atto.takeWhile1 (inClass operatorChars)
               <* whitespaceParser
