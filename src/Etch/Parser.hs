@@ -12,8 +12,9 @@ import Etch.AST
 parse :: Text -> Either String [Def]
 parse text = parseOnly (many defParser) text
 
-defParser :: Parser Def
-defParser = Def <$> L.identifierParser <* L.charParser '=' <*> exprParser
+statementParser :: Parser Statement
+statementParser = DefStatement  <$> defParser
+              <|> ExprStatement <$> exprParser
 
 exprParser :: Parser Expr
 exprParser = BranchExpr   <$> branchParser
@@ -29,6 +30,9 @@ primaryParser = BlockPrimary   <$> blockParser
             <|> IdentPrimary   <$> L.identifierParser
             <|> IntegerPrimary <$> L.integerParser
             <|> StringPrimary  <$> L.stringLiteralParser
+
+defParser :: Parser Def
+defParser = Def <$> L.identifierParser <* L.charParser '=' <*> exprParser
 
 branchParser :: Parser Branch
 branchParser = Branch <$> compoundParser
@@ -48,7 +52,7 @@ blockParser :: Parser Block
 blockParser = Block
           <$> option [] (blockParamsParser <* L.charsParser "->")
           <*  L.charParser '{'
-          <*> many exprParser
+          <*> many statementParser
           <*  L.charParser '}'
 
 blockParamsParser :: Parser [Text]

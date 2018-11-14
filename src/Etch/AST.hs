@@ -2,8 +2,9 @@ module Etch.AST where
 
 import Data.Text
 
-data Def = Def Text Expr
-           deriving Show
+data Statement = DefStatement Def
+               | ExprStatement Expr
+                 deriving Show
 
 data Expr = BranchExpr Branch
           | CompoundExpr Compound
@@ -20,11 +21,14 @@ data Primary = BlockPrimary Block
              | StringPrimary Text
                deriving Show
 
+data Def = Def Text Expr
+           deriving Show
+
 data Branch = Branch Compound Expr Expr
               deriving Show
 
 data Op = Op Text Primary Compound
           deriving Show
 
-data Block = Block [Text] [Expr]
+data Block = Block [Text] [Statement]
              deriving Show
