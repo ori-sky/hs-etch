@@ -48,20 +48,17 @@ moduleGen m = evalState (IR.buildModuleT name moduleBuilder) [HM.empty]
         moduleBuilder = traverse_ topLevelDefBuilder (moduleDefs m)
 
 topLevelDefBuilder :: Def -> ModuleBuilder L.AST.Operand
-topLevelDefBuilder (Def name (CompoundExpr (PrimaryCompound (BlockPrimary (Block args statements))))) = do
-    fn <- IR.function lName lArgs L.AST.i32 $ \argOperands -> do
-        results <- locally $ do
-            modify (HM.fromList (zip args argOperands) :)
-            traverse statementBuilder statements
-        when (not (null results)) (IR.ret (last results))
+topLevelDefBuilder (Def name (CompoundExpr (PrimaryCompound (BlockPrimary block)))) = do
+    fn <- functionBuilder name block
     modify $ \(scope:xs) -> HM.insert name fn scope : xs
     pure fn
-  where lName = (L.AST.Name . ShortBS.toShort . encodeUtf8) name
-        lArgs = (L.AST.i32,) . IR.ParameterName . ShortBS.toShort . encodeUtf8 <$> args
-topLevelDefBuilder (Def name (CompoundExpr (PrimaryCompound (IntegerPrimary x)))) =
-    IR.global lName L.AST.i32 constant
+topLevelDefBuilder (Def name (CompoundExpr (PrimaryCompound (IntegerPrimary x)))) = do
+    g <- IR.global lName L.AST.i32 constant
+    modify $ \(scope:xs) -> HM.insert name constantOp scope : xs
+    pure g
   where lName = (L.AST.Name . ShortBS.toShort . encodeUtf8) name
         constant = L.AST.Const.Int 32 x
+        constantOp = L.AST.ConstantOperand constant
 topLevelDefBuilder def = error (show def)
 
 statementBuilder :: Statement -> Builder L.AST.Operand
@@ -118,10 +115,14 @@ opBuilder (Op op lhs rhs) = do
         o   -> error (show o)
 
 blockBuilder :: Block -> Builder L.AST.Operand
-blockBuilder (Block args statements) = lift $
-    IR.function "_block" lArgs L.AST.i32 $ \argOperands -> do
+blockBuilder block = lift (functionBuilder "_block" block)
+
+functionBuilder :: Text -> Block -> ModuleBuilder L.AST.Operand
+functionBuilder name (Block args statements) =
+    IR.function lName lArgs L.AST.i32 $ \argOperands -> do
         results <- locally $ do
             modify (HM.fromList (zip args argOperands) :)
             traverse statementBuilder statements
         when (not (null results)) (IR.ret (last results))
-  where lArgs = (L.AST.i32,) . IR.ParameterName . ShortBS.toShort . encodeUtf8 <$> args
+  where lName = (L.AST.Name . ShortBS.toShort . encodeUtf8) name
+        lArgs = (L.AST.i32,) . IR.ParameterName . ShortBS.toShort . encodeUtf8 <$> args
