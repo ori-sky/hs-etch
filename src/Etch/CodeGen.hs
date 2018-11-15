@@ -94,6 +94,10 @@ callBuilder (Call callable (CompoundExpr (PrimaryCompound (TuplePrimary args))))
     fn <- compoundBuilder callable
     as <- traverse exprBuilder args
     IR.call fn (fmap (, []) as)
+callBuilder (Call callable (CompoundExpr (PrimaryCompound primary@(IntegerPrimary _)))) = do
+    fn <- compoundBuilder callable
+    p <- primaryBuilder primary
+    IR.call fn [(p, [])]
 callBuilder call = error (show call)
 
 branchBuilder :: Branch -> Builder L.AST.Operand
@@ -115,7 +119,9 @@ opBuilder (Op op lhs rhs) = do
         o   -> error (show o)
 
 blockBuilder :: Block -> Builder L.AST.Operand
-blockBuilder block = lift $ functionBuilder (L.AST.UnName 1) block
+blockBuilder block = do
+    nextID <- fromInteger <$> contextStateNextID
+    lift $ functionBuilder (L.AST.UnName nextID) block
 
 functionBuilder :: L.AST.Name -> Block -> ModuleBuilder L.AST.Operand
 functionBuilder lName (Block args statements) =
