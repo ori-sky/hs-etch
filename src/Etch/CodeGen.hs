@@ -48,16 +48,16 @@ moduleGen m = evalState (IR.buildModuleT name moduleBuilder) [HM.empty]
         moduleBuilder = traverse_ topLevelDefBuilder (moduleDefs m)
 
 topLevelDefBuilder :: Def -> ModuleBuilder L.AST.Operand
-topLevelDefBuilder (Def name (CompoundExpr (PrimaryCompound (BlockPrimary (Block params exprs))))) = do
+topLevelDefBuilder (Def name (CompoundExpr (PrimaryCompound (BlockPrimary (Block args statements))))) = do
     fn <- IR.function lName lArgs L.AST.i32 $ \argOperands -> do
         results <- locally $ do
-            modify (HM.fromList (zip params argOperands) :)
-            traverse statementBuilder exprs
+            modify (HM.fromList (zip args argOperands) :)
+            traverse statementBuilder statements
         when (not (null results)) (IR.ret (last results))
     modify $ \(scope:xs) -> HM.insert name fn scope : xs
     pure fn
   where lName = (L.AST.Name . ShortBS.toShort . encodeUtf8) name
-        lArgs = (L.AST.i32,) . IR.ParameterName . ShortBS.toShort . encodeUtf8 <$> params
+        lArgs = (L.AST.i32,) . IR.ParameterName . ShortBS.toShort . encodeUtf8 <$> args
 topLevelDefBuilder (Def name (CompoundExpr (PrimaryCompound (IntegerPrimary x)))) =
     IR.global lName L.AST.i32 constant
   where lName = (L.AST.Name . ShortBS.toShort . encodeUtf8) name
@@ -78,6 +78,7 @@ compoundBuilder (OpCompound op) = opBuilder op
 compoundBuilder (PrimaryCompound primary) = primaryBuilder primary
 
 primaryBuilder :: Primary -> Builder L.AST.Operand
+primaryBuilder (BlockPrimary block) = blockBuilder block
 primaryBuilder (TuplePrimary [expr]) = exprBuilder expr
 primaryBuilder (IdentPrimary name) = get >>= f
   where f (scope:xs) = maybe (f xs) pure (HM.lookup name scope)
@@ -115,3 +116,12 @@ opBuilder (Op op lhs rhs) = do
         "==" -> IR.icmp L.AST.EQ l r
         "<"  -> IR.icmp L.AST.SLT l r
         o   -> error (show o)
+
+blockBuilder :: Block -> Builder L.AST.Operand
+blockBuilder (Block args statements) = lift $
+    IR.function "_block" lArgs L.AST.i32 $ \argOperands -> do
+        results <- locally $ do
+            modify (HM.fromList (zip args argOperands) :)
+            traverse statementBuilder statements
+        when (not (null results)) (IR.ret (last results))
+  where lArgs = (L.AST.i32,) . IR.ParameterName . ShortBS.toShort . encodeUtf8 <$> args

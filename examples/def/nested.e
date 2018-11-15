@@ -3,7 +3,7 @@ depth1 = {
 	depth2 = {
 		x = 3
 		y = 2
-		depth3 = (a, b) {
+		depth3 = (a, b) -> {
 			a + b
 		}
 	}
