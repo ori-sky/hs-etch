@@ -9,8 +9,6 @@ import qualified Data.ByteString.Short as ShortBS
 import qualified Data.HashMap.Lazy as HM
 import qualified Data.Text as T
 import Data.Foldable (traverse_)
-import Data.Maybe (maybe)
-import Data.Text (Text)
 import Data.Text.Encoding (encodeUtf8)
 import Control.Monad (join)
 import Control.Monad.State
@@ -26,10 +24,10 @@ import qualified LLVM.IRBuilder.Instruction as IR
 import qualified LLVM.IRBuilder.Module      as IR
 import qualified LLVM.IRBuilder.Monad       as IR
 import Etch.AST
+import Etch.CodeGen.Context
 import Etch.Module
 
-type Scope = HM.HashMap Text L.AST.Operand
-type ModuleBuilder = IR.ModuleBuilderT (State [Scope])
+type ModuleBuilder = IR.ModuleBuilderT (State (Context L.AST.Operand))
 type Builder = IR.IRBuilderT ModuleBuilder
 
 -- thanks to Solonarv from #haskell for this gem
@@ -43,18 +41,19 @@ codeGen m = L.withContext $ \ctx ->
         lAST = (moduleGen m) { L.AST.moduleSourceFileName = srcFile }
 
 moduleGen :: Module -> L.AST.Module
-moduleGen m = evalState (IR.buildModuleT name moduleBuilder) [HM.empty]
+moduleGen m = evalState (IR.buildModuleT name moduleBuilder) defaultContext
   where name = (ShortBS.toShort . encodeUtf8 . T.pack . moduleName) m
         moduleBuilder = traverse_ topLevelDefBuilder (moduleDefs m)
 
 topLevelDefBuilder :: Def -> ModuleBuilder L.AST.Operand
 topLevelDefBuilder (Def name (CompoundExpr (PrimaryCompound (BlockPrimary block)))) = do
-    fn <- functionBuilder name block
-    modify $ \(scope:xs) -> HM.insert name fn scope : xs
+    fn <- functionBuilder lName block
+    modify (contextInsert name fn)
     pure fn
+  where lName = (L.AST.Name . ShortBS.toShort . encodeUtf8) name
 topLevelDefBuilder (Def name (CompoundExpr (PrimaryCompound (IntegerPrimary x)))) = do
     g <- IR.global lName L.AST.i32 constant
-    modify $ \(scope:xs) -> HM.insert name constantOp scope : xs
+    modify (contextInsert name constantOp)
     pure g
   where lName = (L.AST.Name . ShortBS.toShort . encodeUtf8) name
         constant = L.AST.Const.Int 32 x
@@ -78,15 +77,16 @@ primaryBuilder :: Primary -> Builder L.AST.Operand
 primaryBuilder (BlockPrimary block) = blockBuilder block
 primaryBuilder (TuplePrimary [expr]) = exprBuilder expr
 primaryBuilder (IdentPrimary name) = get >>= f
-  where f (scope:xs) = maybe (f xs) pure (HM.lookup name scope)
-        f [] = error ("undefined name: " ++ T.unpack name)
+  where f context = case contextLookup name context of
+            Just value -> pure value
+            Nothing    -> error ("undefined name " ++ T.unpack name)
 primaryBuilder (IntegerPrimary x) = IR.int32 x
 primaryBuilder primary = error (show primary)
 
 defBuilder :: Def -> Builder L.AST.Operand
 defBuilder (Def name expr) = do
     e <- exprBuilder expr
-    modify $ \(scope:xs) -> HM.insert name e scope : xs
+    modify (contextInsert name e)
     pure e
 
 callBuilder :: Call -> Builder L.AST.Operand
@@ -115,14 +115,13 @@ opBuilder (Op op lhs rhs) = do
         o   -> error (show o)
 
 blockBuilder :: Block -> Builder L.AST.Operand
-blockBuilder block = lift (functionBuilder "_block" block)
+blockBuilder block = lift $ functionBuilder (L.AST.UnName 1) block
 
-functionBuilder :: Text -> Block -> ModuleBuilder L.AST.Operand
-functionBuilder name (Block args statements) =
+functionBuilder :: L.AST.Name -> Block -> ModuleBuilder L.AST.Operand
+functionBuilder lName (Block args statements) =
     IR.function lName lArgs L.AST.i32 $ \argOperands -> do
         results <- locally $ do
-            modify (HM.fromList (zip args argOperands) :)
+            modify $ contextInsertScope (HM.fromList (zip args argOperands))
             traverse statementBuilder statements
         when (not (null results)) (IR.ret (last results))
-  where lName = (L.AST.Name . ShortBS.toShort . encodeUtf8) name
-        lArgs = (L.AST.i32,) . IR.ParameterName . ShortBS.toShort . encodeUtf8 <$> args
+  where lArgs = (L.AST.i32,) . IR.ParameterName . ShortBS.toShort . encodeUtf8 <$> args
