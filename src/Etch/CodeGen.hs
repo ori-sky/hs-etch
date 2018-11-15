@@ -29,7 +29,12 @@ import Etch.AST
 import Etch.Module
 
 type Scope = HM.HashMap Text L.AST.Operand
-type Builder a = forall m. IR.MonadModuleBuilder m => StateT [Scope] (IR.IRBuilderT m) a
+type ModuleBuilder = IR.ModuleBuilderT (State [Scope])
+type Builder = IR.IRBuilderT ModuleBuilder
+
+-- thanks to Solonarv from #haskell for this gem
+locally :: MonadState s m => m a -> m a
+locally action = (action <*) . put =<< get
 
 codeGen :: Module -> IO String
 codeGen m = L.withContext $ \ctx ->
@@ -38,16 +43,19 @@ codeGen m = L.withContext $ \ctx ->
         lAST = (moduleGen m) { L.AST.moduleSourceFileName = srcFile }
 
 moduleGen :: Module -> L.AST.Module
-moduleGen m = IR.buildModule name $ do
-    traverse_ topLevelDefBuilder (moduleDefs m)
+moduleGen m = evalState (IR.buildModuleT name moduleBuilder) [HM.empty]
   where name = (ShortBS.toShort . encodeUtf8 . T.pack . moduleName) m
+        moduleBuilder = traverse_ topLevelDefBuilder (moduleDefs m)
 
-topLevelDefBuilder :: IR.MonadModuleBuilder m => Def -> m L.AST.Operand
-topLevelDefBuilder (Def name (CompoundExpr (PrimaryCompound (BlockPrimary (Block params exprs))))) =
-    IR.function lName lArgs L.AST.i32 $ \argOperands -> do
-        let args = HM.fromList (zip params argOperands)
-        results <- evalStateT (traverse statementBuilder exprs) [args]
+topLevelDefBuilder :: Def -> ModuleBuilder L.AST.Operand
+topLevelDefBuilder (Def name (CompoundExpr (PrimaryCompound (BlockPrimary (Block params exprs))))) = do
+    fn <- IR.function lName lArgs L.AST.i32 $ \argOperands -> do
+        results <- locally $ do
+            modify (HM.fromList (zip params argOperands) :)
+            traverse statementBuilder exprs
         when (not (null results)) (IR.ret (last results))
+    modify $ \(scope:xs) -> HM.insert name fn scope : xs
+    pure fn
   where lName = (L.AST.Name . ShortBS.toShort . encodeUtf8) name
         lArgs = (L.AST.i32,) . IR.ParameterName . ShortBS.toShort . encodeUtf8 <$> params
 topLevelDefBuilder (Def name (CompoundExpr (PrimaryCompound (IntegerPrimary x)))) =
@@ -61,6 +69,7 @@ statementBuilder (DefStatement def) = defBuilder def
 statementBuilder (ExprStatement expr) = exprBuilder expr
 
 exprBuilder :: Expr -> Builder L.AST.Operand
+exprBuilder (CallExpr call) = callBuilder call
 exprBuilder (BranchExpr branch) = branchBuilder branch
 exprBuilder (CompoundExpr compound) = compoundBuilder compound
 
@@ -81,6 +90,13 @@ defBuilder (Def name expr) = do
     e <- exprBuilder expr
     modify $ \(scope:xs) -> HM.insert name e scope : xs
     pure e
+
+callBuilder :: Call -> Builder L.AST.Operand
+callBuilder (Call callable (CompoundExpr (PrimaryCompound (TuplePrimary args)))) = do
+    fn <- compoundBuilder callable
+    as <- traverse exprBuilder args
+    IR.call fn (fmap (, []) as)
+callBuilder call = error (show call)
 
 branchBuilder :: Branch -> Builder L.AST.Operand
 branchBuilder (Branch cond trueBranch falseBranch) =

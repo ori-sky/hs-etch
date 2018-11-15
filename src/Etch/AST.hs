@@ -6,7 +6,8 @@ data Statement = DefStatement Def
                | ExprStatement Expr
                  deriving Show
 
-data Expr = BranchExpr Branch
+data Expr = CallExpr Call
+          | BranchExpr Branch
           | CompoundExpr Compound
             deriving Show
 
@@ -23,6 +24,9 @@ data Primary = BlockPrimary Block
 
 data Def = Def Text Expr
            deriving Show
+
+data Call = Call Compound Expr
+            deriving Show
 
 data Branch = Branch Compound Expr Expr
               deriving Show

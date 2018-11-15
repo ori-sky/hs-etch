@@ -17,7 +17,8 @@ statementParser = DefStatement  <$> defParser
               <|> ExprStatement <$> exprParser
 
 exprParser :: Parser Expr
-exprParser = BranchExpr   <$> branchParser
+exprParser = CallExpr     <$> callParser
+         <|> BranchExpr   <$> branchParser
          <|> CompoundExpr <$> compoundParser
 
 compoundParser :: Parser Compound
@@ -34,6 +35,9 @@ primaryParser = BlockPrimary   <$> blockParser
 defParser :: Parser Def
 defParser = Def <$> L.identifierParser <* L.charParser '=' <*> exprParser
 
+callParser :: Parser Call
+callParser = Call <$> compoundParser <* L.charsParser "<-" <*> exprParser
+
 branchParser :: Parser Branch
 branchParser = Branch <$> compoundParser
                       <*  L.charParser '?'
@@ -46,6 +50,7 @@ opParser = do
     lhs <- primaryParser
     op  <- L.operatorParser
     when (op == "->") (fail "operator `->` is reserved")
+    when (op == "<-") (fail "operator `<-` is reserved")
     Op op lhs <$> compoundParser
 
 blockParser :: Parser Block
