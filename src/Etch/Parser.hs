@@ -7,7 +7,7 @@ import Data.Text
 import Control.Applicative ((<|>), many)
 import Control.Monad (when)
 import qualified Etch.Lexer as L
-import Etch.AST
+import Etch.Types.SyntaxTree
 
 parse :: Text -> Either String [Def]
 parse text = parseOnly (many defParser) text

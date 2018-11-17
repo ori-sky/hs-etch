@@ -1,6 +1,6 @@
-module Etch.Module where
+module Etch.Types.Module where
 
-import Etch.AST
+import Etch.Types.SyntaxTree
 
 data Module = Module { moduleName        :: String
                      , moduleSourceFile  :: String

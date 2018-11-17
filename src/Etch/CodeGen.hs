@@ -23,9 +23,9 @@ import qualified LLVM.IRBuilder.Constant    as IR
 import qualified LLVM.IRBuilder.Instruction as IR
 import qualified LLVM.IRBuilder.Module      as IR
 import qualified LLVM.IRBuilder.Monad       as IR
-import Etch.AST
 import Etch.CodeGen.Context
-import Etch.Module
+import Etch.Types.Module
+import Etch.Types.SyntaxTree
 
 type ModuleBuilder = IR.ModuleBuilderT (State (Context L.AST.Operand))
 type Builder = IR.IRBuilderT ModuleBuilder

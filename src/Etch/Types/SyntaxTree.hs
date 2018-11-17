@@ -1,4 +1,4 @@
-module Etch.AST where
+module Etch.Types.SyntaxTree where
 
 import Data.Text
 

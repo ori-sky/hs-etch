@@ -5,18 +5,18 @@ module Main where
 import System.IO (IOMode(ReadMode), Handle, stdin, openBinaryFile)
 import Data.Text.IO (hGetContents)
 import System.Environment (getArgs)
-import qualified Etch.Parser as P
-import qualified Etch.CodeGen as CG
-import qualified Etch.Module as M
+import Etch.Parser (parse)
+import Etch.CodeGen (codeGen)
+import Etch.Types.Module (defaultModule)
 
 main :: IO ()
 main = do
     args <- getArgs
     handle <- getHandle args
     let srcFile = getSrcFile args
-    P.parse <$> hGetContents handle >>= \case
+    parse <$> hGetContents handle >>= \case
         Left str   -> putStrLn ("failed to parse: " ++ str)
-        Right defs -> putStrLn =<< CG.codeGen (M.defaultModule srcFile defs)
+        Right defs -> putStrLn =<< codeGen (defaultModule srcFile defs)
 
 getHandle :: [String] -> IO Handle
 getHandle = \case
