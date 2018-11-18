@@ -2,9 +2,9 @@
 
 module Main where
 
-import System.IO (IOMode(ReadMode), Handle, stdin, openBinaryFile)
 import Data.Text.IO (hGetContents)
 import System.Environment (getArgs)
+import System.IO (IOMode(ReadMode), Handle, stdin, openBinaryFile)
 import qualified Etch.Analysis.Semantics as Semantics
 import Etch.Parser (parse)
 import Etch.CodeGen (codeGen)
