@@ -1,10 +1,10 @@
 module Etch.Types.Module where
 
-import Etch.Types.SyntaxTree
+import Etch.Types.SemanticTree (Def)
 
-data Module = Module { moduleName        :: String
-                     , moduleSourceFile  :: String
-                     , moduleDefs :: [Def]
+data Module = Module { moduleName       :: String
+                     , moduleSourceFile :: String
+                     , moduleDefs       :: [Def]
                      }
 
 defaultModule :: String -> [Def] -> Module

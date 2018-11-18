@@ -1,9 +1,8 @@
-module Etch.Types.SyntaxTree where
+module Etch.Types.SemanticTree where
 
 import Data.Text (Text)
 
-data Statement = SigStatement Sig
-               | DefStatement Def
+data Statement = DefStatement Def
                | ExprStatement Expr
                  deriving Show
 
@@ -22,12 +21,6 @@ data Primary = BlockPrimary Block
              | IntegerPrimary Integer
              | StringPrimary Text
                deriving Show
-
-data Sig = Sig Expr Type
-           deriving Show
-
-data Type = IntType
-            deriving Show
 
 data Def = Def Text Expr
            deriving Show

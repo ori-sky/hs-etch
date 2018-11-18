@@ -9,11 +9,12 @@ import Control.Monad (when)
 import qualified Etch.Lexer as L
 import Etch.Types.SyntaxTree
 
-parse :: Text -> Either String [Def]
-parse text = parseOnly (many defParser) text
+parse :: Text -> Either String [Statement]
+parse text = parseOnly (many statementParser) text
 
 statementParser :: Parser Statement
-statementParser = DefStatement  <$> defParser
+statementParser = SigStatement  <$> sigParser
+              <|> DefStatement  <$> defParser
               <|> ExprStatement <$> exprParser
 
 exprParser :: Parser Expr
@@ -31,6 +32,12 @@ primaryParser = BlockPrimary   <$> blockParser
             <|> IdentPrimary   <$> L.identifierParser
             <|> IntegerPrimary <$> L.integerParser
             <|> StringPrimary  <$> L.stringLiteralParser
+
+sigParser :: Parser Sig
+sigParser = Sig <$> exprParser <* L.charParser ':' <*> typeParser
+
+typeParser :: Parser Type
+typeParser = IntType <$ L.charsParser "int"
 
 defParser :: Parser Def
 defParser = Def <$> L.identifierParser <* L.charParser '=' <*> exprParser

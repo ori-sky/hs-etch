@@ -5,18 +5,22 @@ module Main where
 import System.IO (IOMode(ReadMode), Handle, stdin, openBinaryFile)
 import Data.Text.IO (hGetContents)
 import System.Environment (getArgs)
+import qualified Etch.Analysis.Semantics as Semantics
 import Etch.Parser (parse)
 import Etch.CodeGen (codeGen)
 import Etch.Types.Module (defaultModule)
+import Etch.Types.SemanticTree (Statement(DefStatement))
 
 main :: IO ()
 main = do
     args <- getArgs
-    handle <- getHandle args
-    let srcFile = getSrcFile args
-    parse <$> hGetContents handle >>= \case
-        Left str   -> putStrLn ("failed to parse: " ++ str)
-        Right defs -> putStrLn =<< codeGen (defaultModule srcFile defs)
+    contents <- hGetContents =<< getHandle args
+    case parse contents >>= Semantics.analysis of
+        Left str         -> putStrLn ("analysis failed: " ++ str)
+        Right statements -> do
+            print statements
+            putStrLn =<< codeGen (defaultModule (getSrcFile args) defs)
+          where defs = [ def | DefStatement def <- statements ]
 
 getHandle :: [String] -> IO Handle
 getHandle = \case
