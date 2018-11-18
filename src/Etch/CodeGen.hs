@@ -12,13 +12,13 @@ import Data.Foldable (traverse_)
 import Data.Text.Encoding (encodeUtf8)
 import Control.Monad (join)
 import Control.Monad.State
-import qualified LLVM              as L
-import qualified LLVM.Context      as L
-import qualified LLVM.AST          as L.AST hiding (type')
-import qualified LLVM.AST.Constant as L.AST.Const
---import qualified LLVM.AST.Global   as L.AST
-import qualified LLVM.AST.IntegerPredicate as L.AST
-import qualified LLVM.AST.Type     as L.AST (i32)
+import qualified LLVM                       as L
+import qualified LLVM.Context               as L
+import qualified LLVM.AST                   as L.AST hiding (type')
+import qualified LLVM.AST.Constant          as L.AST.Const
+--import qualified LLVM.AST.Global            as L.AST
+import qualified LLVM.AST.IntegerPredicate  as L.AST
+import qualified LLVM.AST.Type              as L.AST (i32)
 import qualified LLVM.IRBuilder.Constant    as IR
 import qualified LLVM.IRBuilder.Instruction as IR
 import qualified LLVM.IRBuilder.Module      as IR
