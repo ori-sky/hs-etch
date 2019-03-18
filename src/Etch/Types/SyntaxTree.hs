@@ -2,7 +2,7 @@ module Etch.Types.SyntaxTree where
 
 import Data.Text (Text)
 
-data Statement = SigStatement Sig
+data Statement = SigStatement (Sig Expr)
                | DefStatement Def
                | ExprStatement Expr
                  deriving Show
@@ -23,10 +23,11 @@ data Primary = BlockPrimary Block
              | StringPrimary Text
                deriving Show
 
-data Sig = Sig Expr Type
-           deriving Show
+data Sig a = Sig a Type
+             deriving Show
 
 data Type = IntType
+          | InferredType
             deriving Show
 
 data Def = Def Text Expr
@@ -41,5 +42,8 @@ data Branch = Branch Compound Expr Expr
 data Op = Op Text Primary Compound
           deriving Show
 
-data Block = Block [Text] [Statement]
+data Block = Block ParamList [Statement]
              deriving Show
+
+data ParamList = ParamList [Sig Text]
+                 deriving Show

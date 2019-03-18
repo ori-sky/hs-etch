@@ -45,13 +45,13 @@ moduleGen m = evalState (IR.buildModuleT name moduleBuilder) defaultContext
   where name = (ShortBS.toShort . encodeUtf8 . T.pack . moduleName) m
         moduleBuilder = traverse_ topLevelDefBuilder (moduleDefs m)
 
-topLevelDefBuilder :: Def -> ModuleBuilder L.AST.Operand
-topLevelDefBuilder (Def name (CompoundExpr (PrimaryCompound (BlockPrimary block)))) = do
+topLevelDefBuilder :: Typed Def -> ModuleBuilder L.AST.Operand
+topLevelDefBuilder (Def name (CompoundExpr (PrimaryCompound (BlockPrimary block `As` _) `As` _) `As` _) `As` _) = do
     fn <- functionBuilder lName block
     modify (contextInsert name fn)
     pure fn
   where lName = (L.AST.Name . ShortBS.toShort . encodeUtf8) name
-topLevelDefBuilder (Def name (CompoundExpr (PrimaryCompound (IntegerPrimary x)))) = do
+topLevelDefBuilder (Def name (CompoundExpr (PrimaryCompound (IntegerPrimary x `As` _) `As` _) `As` _) `As` _) = do
     g <- IR.global lName L.AST.i32 constant
     modify (contextInsert name constantOp)
     pure g
@@ -60,54 +60,54 @@ topLevelDefBuilder (Def name (CompoundExpr (PrimaryCompound (IntegerPrimary x)))
         constantOp = L.AST.ConstantOperand constant
 topLevelDefBuilder def = error (show def)
 
-statementBuilder :: Statement -> Builder L.AST.Operand
-statementBuilder (DefStatement def) = defBuilder def
-statementBuilder (ExprStatement expr) = exprBuilder expr
+statementBuilder :: Typed Statement -> Builder L.AST.Operand
+statementBuilder (DefStatement def `As` _) = defBuilder def
+statementBuilder (ExprStatement expr `As` _) = exprBuilder expr
 
-exprBuilder :: Expr -> Builder L.AST.Operand
-exprBuilder (CallExpr call) = callBuilder call
-exprBuilder (BranchExpr branch) = branchBuilder branch
-exprBuilder (CompoundExpr compound) = compoundBuilder compound
+exprBuilder :: Typed Expr -> Builder L.AST.Operand
+exprBuilder (CallExpr call `As` _) = callBuilder call
+exprBuilder (BranchExpr branch `As` _) = branchBuilder branch
+exprBuilder (CompoundExpr compound `As` _) = compoundBuilder compound
 
-compoundBuilder :: Compound -> Builder L.AST.Operand
-compoundBuilder (OpCompound op) = opBuilder op
-compoundBuilder (PrimaryCompound primary) = primaryBuilder primary
+compoundBuilder :: Typed Compound -> Builder L.AST.Operand
+compoundBuilder (OpCompound op `As` _) = opBuilder op
+compoundBuilder (PrimaryCompound primary `As` _) = primaryBuilder primary
 
-primaryBuilder :: Primary -> Builder L.AST.Operand
-primaryBuilder (BlockPrimary block) = blockBuilder block
-primaryBuilder (TuplePrimary [expr]) = exprBuilder expr
-primaryBuilder (IdentPrimary name) = get >>= f
+primaryBuilder :: Typed Primary -> Builder L.AST.Operand
+primaryBuilder (BlockPrimary block `As` _) = blockBuilder block
+primaryBuilder (TuplePrimary [expr] `As` _) = exprBuilder expr
+primaryBuilder (IdentPrimary name `As` _) = get >>= f
   where f context = case contextLookup name context of
             Just value -> pure value
             Nothing    -> error ("undefined name " ++ T.unpack name)
-primaryBuilder (IntegerPrimary x) = IR.int32 x
+primaryBuilder (IntegerPrimary x `As` _) = IR.int32 x
 primaryBuilder primary = error (show primary)
 
-defBuilder :: Def -> Builder L.AST.Operand
-defBuilder (Def name expr) = do
+defBuilder :: Typed Def -> Builder L.AST.Operand
+defBuilder (Def name expr `As` _) = do
     e <- exprBuilder expr
     modify (contextInsert name e)
     pure e
 
-callBuilder :: Call -> Builder L.AST.Operand
-callBuilder (Call callable (CompoundExpr (PrimaryCompound (TuplePrimary args)))) = do
+callBuilder :: Typed Call -> Builder L.AST.Operand
+callBuilder (Call callable (CompoundExpr (PrimaryCompound (TuplePrimary args `As` _) `As` _) `As` _) `As` _) = do
     fn <- compoundBuilder callable
     as <- traverse exprBuilder args
     IR.call fn (fmap (, []) as)
-callBuilder (Call callable (CompoundExpr (PrimaryCompound primary@(IntegerPrimary _)))) = do
+callBuilder (Call callable (CompoundExpr (PrimaryCompound primary@(IntegerPrimary _ `As` _) `As` _) `As` _) `As` _) = do
     fn <- compoundBuilder callable
     p <- primaryBuilder primary
     IR.call fn [(p, [])]
 callBuilder call = error (show call)
 
-branchBuilder :: Branch -> Builder L.AST.Operand
-branchBuilder (Branch cond trueBranch falseBranch) =
+branchBuilder :: Typed Branch -> Builder L.AST.Operand
+branchBuilder (Branch cond trueBranch falseBranch `As` _) =
     join (IR.select <$> compoundBuilder cond
                     <*> exprBuilder trueBranch
                     <*> exprBuilder falseBranch)
 
-opBuilder :: Op -> Builder L.AST.Operand
-opBuilder (Op op lhs rhs) = do
+opBuilder :: Typed Op -> Builder L.AST.Operand
+opBuilder (Op op lhs rhs `As` _) = do
     l <- primaryBuilder lhs
     r <- compoundBuilder rhs
     case op of
@@ -118,16 +118,17 @@ opBuilder (Op op lhs rhs) = do
         "<"  -> IR.icmp L.AST.SLT l r
         o   -> error (show o)
 
-blockBuilder :: Block -> Builder L.AST.Operand
+blockBuilder :: Typed Block -> Builder L.AST.Operand
 blockBuilder block = do
     nextID <- fromInteger <$> contextStateNextID
     lift $ functionBuilder (L.AST.UnName nextID) block
 
-functionBuilder :: L.AST.Name -> Block -> ModuleBuilder L.AST.Operand
-functionBuilder lName (Block args statements) =
+functionBuilder :: L.AST.Name -> Typed Block -> ModuleBuilder L.AST.Operand
+functionBuilder lName (Block (ParamList params) statements `As` _) =
     IR.function lName lArgs L.AST.i32 $ \argOperands -> do
         results <- locally $ do
-            modify $ contextInsertScope (HM.fromList (zip args argOperands))
+            modify $ contextInsertScope (HM.fromList (zip argNames argOperands))
             traverse statementBuilder statements
         when (not (null results)) (IR.ret (last results))
-  where lArgs = (L.AST.i32,) . IR.ParameterName . ShortBS.toShort . encodeUtf8 <$> args
+  where argNames = [ name | name `As` _ <- params ]
+        lArgs = (L.AST.i32,) . IR.ParameterName . ShortBS.toShort . encodeUtf8 <$> argNames

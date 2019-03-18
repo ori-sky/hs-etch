@@ -13,7 +13,7 @@ parse :: Text -> Either String [Statement]
 parse text = parseOnly (many statementParser) text
 
 statementParser :: Parser Statement
-statementParser = SigStatement  <$> sigParser
+statementParser = SigStatement  <$> sigParser exprParser
               <|> DefStatement  <$> defParser
               <|> ExprStatement <$> exprParser
 
@@ -33,8 +33,8 @@ primaryParser = BlockPrimary   <$> blockParser
             <|> IntegerPrimary <$> L.integerParser
             <|> StringPrimary  <$> L.stringLiteralParser
 
-sigParser :: Parser Sig
-sigParser = Sig <$> exprParser <* L.charParser ':' <*> typeParser
+sigParser :: Parser a -> Parser (Sig a)
+sigParser p = Sig <$> p <* L.charParser ':' <*> typeParser
 
 typeParser :: Parser Type
 typeParser = IntType <$ L.charsParser "int"
@@ -61,15 +61,21 @@ opParser = do
     Op op lhs <$> compoundParser
 
 blockParser :: Parser Block
-blockParser = Block
-          <$> option [] (blockParamsParser <* L.charsParser "->")
-          <*  L.charParser '{'
-          <*> many statementParser
-          <*  L.charParser '}'
+blockParser = Block <$> paramListParser <* L.charsParser "->" <*> blockInnerParser
+          <|> Block (ParamList [])                            <$> blockInnerParser
 
-blockParamsParser :: Parser [Text]
-blockParamsParser = tupleParser L.identifierParser
-                <|> pure <$> L.identifierParser
+blockInnerParser :: Parser [Statement]
+blockInnerParser = L.charParser '{'
+                *> many statementParser
+               <*  L.charParser '}'
+
+paramListParser :: Parser ParamList
+paramListParser = ParamList <$> tupleParser paramParser
+              <|> ParamList <$> pure <$> paramParser
+
+paramParser :: Parser (Sig Text)
+paramParser = sigParser L.identifierParser
+          <|> Sig <$> L.identifierParser <*> pure InferredType
 
 tupleParser :: Parser a -> Parser [a]
 tupleParser p = L.charParser '('
