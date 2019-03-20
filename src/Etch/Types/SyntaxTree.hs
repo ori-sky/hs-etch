@@ -2,8 +2,7 @@ module Etch.Types.SyntaxTree where
 
 import Data.Text (Text)
 
-data Statement = SigStatement (Sig Expr)
-               | DefStatement Def
+data Statement = DefStatement Def
                | ExprStatement Expr
                  deriving Show
 
@@ -13,6 +12,7 @@ data Expr = CallExpr Call
             deriving Show
 
 data Compound = OpCompound Op
+              | SigCompound (Sig Primary)
               | PrimaryCompound Primary
                 deriving Show
 

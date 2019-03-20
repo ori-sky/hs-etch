@@ -13,8 +13,7 @@ parse :: Text -> Either String [Statement]
 parse text = parseOnly (many statementParser) text
 
 statementParser :: Parser Statement
-statementParser = SigStatement  <$> sigParser exprParser
-              <|> DefStatement  <$> defParser
+statementParser = DefStatement  <$> defParser
               <|> ExprStatement <$> exprParser
 
 exprParser :: Parser Expr
@@ -24,6 +23,7 @@ exprParser = CallExpr     <$> callParser
 
 compoundParser :: Parser Compound
 compoundParser = OpCompound      <$> opParser
+             <|> SigCompound     <$> sigParser primaryParser
              <|> PrimaryCompound <$> primaryParser
 
 primaryParser :: Parser Primary

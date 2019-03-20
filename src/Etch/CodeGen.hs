@@ -18,7 +18,7 @@ import qualified LLVM.AST                   as L.AST hiding (type')
 import qualified LLVM.AST.Constant          as L.AST.Const
 --import qualified LLVM.AST.Global            as L.AST
 import qualified LLVM.AST.IntegerPredicate  as L.AST
-import qualified LLVM.AST.Type              as L.AST (i32)
+import qualified LLVM.AST.Type              as L.AST (void, i32)
 import qualified LLVM.IRBuilder.Constant    as IR
 import qualified LLVM.IRBuilder.Instruction as IR
 import qualified LLVM.IRBuilder.Module      as IR
@@ -58,7 +58,7 @@ topLevelDefBuilder (Def name (CompoundExpr (PrimaryCompound (IntegerPrimary x `A
   where lName = (L.AST.Name . ShortBS.toShort . encodeUtf8) name
         constant = L.AST.Const.Int 32 x
         constantOp = L.AST.ConstantOperand constant
-topLevelDefBuilder def = error (show def)
+topLevelDefBuilder def = error ("unhandled top-level def: " ++ show def)
 
 statementBuilder :: Typed Statement -> Builder L.AST.Operand
 statementBuilder (DefStatement def `As` _) = defBuilder def
@@ -116,7 +116,7 @@ opBuilder (Op op lhs rhs `As` _) = do
         "*"  -> IR.mul l r
         "==" -> IR.icmp L.AST.EQ l r
         "<"  -> IR.icmp L.AST.SLT l r
-        o   -> error (show o)
+        o    -> error (show o)
 
 blockBuilder :: Typed Block -> Builder L.AST.Operand
 blockBuilder block = do
@@ -124,11 +124,19 @@ blockBuilder block = do
     lift $ functionBuilder (L.AST.UnName nextID) block
 
 functionBuilder :: L.AST.Name -> Typed Block -> ModuleBuilder L.AST.Operand
-functionBuilder lName (Block (ParamList params) statements `As` _) =
-    IR.function lName lArgs L.AST.i32 $ \argOperands -> do
+functionBuilder lName (Block (ParamList params) statements `As` FunctionType _ retTy) =
+    IR.function lName lArgs (fromType retTy) $ \argOperands -> do
         results <- locally $ do
             modify $ contextInsertScope (HM.fromList (zip argNames argOperands))
             traverse statementBuilder statements
         when (not (null results)) (IR.ret (last results))
-  where argNames = [ name | name `As` _ <- params ]
-        lArgs = (L.AST.i32,) . IR.ParameterName . ShortBS.toShort . encodeUtf8 <$> argNames
+  where f (argName `As` argTy) = (fromType argTy, IR.ParameterName . ShortBS.toShort . encodeUtf8 $ argName)
+        lArgs = f <$> params
+        argNames = typedVal <$> params
+functionBuilder _ block  = error ("unhandled function: " ++ show block)
+
+fromType :: Type -> L.AST.Type
+fromType IntType = L.AST.i32
+fromType UnitType = L.AST.void
+fromType UnresolvedType = error "unresolved type"
+fromType ty = error ("unhandled type: " ++ show ty)
