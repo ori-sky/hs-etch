@@ -2,15 +2,21 @@
 
 module Etch.Parser where
 
+import qualified Data.Attoparsec.Text as Atto (parse)
 import Data.Attoparsec.Text hiding (parse)
-import Data.Text
+import Data.List (intercalate)
+import Data.Text hiding (intercalate)
 import Control.Applicative ((<|>), many)
 import Control.Monad (when)
 import qualified Etch.Lexer as L
 import Etch.Types.SyntaxTree
 
 parse :: Text -> Either String [Statement]
-parse text = parseOnly (many statementParser) text
+parse text = f (Atto.parse statementParser text)
+  where f (Fail area contexts err)   = Left (unpack area ++ "\n" ++ err ++ "\n\n" ++ intercalate "\n" contexts)
+        f (Partial cont)          = f (cont "")
+        f (Done "" result)        = pure [result]
+        f (Done remainder result) = (result :) <$> parse remainder
 
 statementParser :: Parser Statement
 statementParser = DefStatement  <$> defParser
