@@ -17,6 +17,7 @@ data Compound = OpCompound Op
                 deriving Show
 
 data Primary = BlockPrimary Block
+             | TypePrimary Type
              | TuplePrimary [Expr]
              | IdentPrimary Text
              | IntegerPrimary Integer
@@ -27,7 +28,7 @@ data Sig a = Sig a Type
              deriving Show
 
 data Type = IntType Integer
-          | InferredType
+          | NewType [Expr]
             deriving Show
 
 data Def = Def Text Expr
@@ -45,5 +46,9 @@ data Op = Op Text Primary Compound
 data Block = Block ParamList [Statement]
              deriving Show
 
-data ParamList = ParamList [Sig Text]
+data ParamList = ParamList [Param]
                  deriving Show
+
+data Param = SigParam (Sig Text)
+           | InferredParam Text
+             deriving Show

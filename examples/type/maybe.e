@@ -1,3 +1,3 @@
-maybe = <>
-just    : maybe = t -> <t>
-nothing : maybe = <>
+maybe   = t -> <t>
+just    = t -> <t> : maybe <- t
+nothing = t -> <>  : maybe <- t

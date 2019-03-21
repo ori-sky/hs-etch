@@ -58,6 +58,8 @@ topLevelDefBuilder (Def name (CompoundExpr (PrimaryCompound (IntegerPrimary x `A
   where lName = (L.AST.Name . ShortBS.toShort . encodeUtf8) name
         constant = L.AST.Const.Int 32 x
         constantOp = L.AST.ConstantOperand constant
+topLevelDefBuilder (_ `As` KindType _) = pure constantOp
+  where constantOp = L.AST.ConstantOperand (L.AST.Const.Undef L.AST.void)
 topLevelDefBuilder def = error ("unhandled top-level def: " ++ show def)
 
 statementBuilder :: Typed Statement -> Builder L.AST.Operand

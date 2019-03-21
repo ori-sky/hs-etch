@@ -20,15 +20,16 @@ exprAnalysis (Syntax.CompoundExpr compound) = tymap CompoundExpr <$> compoundAna
 compoundAnalysis :: Syntax.Compound -> Analysis (Typed Compound)
 compoundAnalysis (Syntax.OpCompound op) = tymap OpCompound <$> opAnalysis op
 compoundAnalysis (Syntax.SigCompound sig@(Syntax.Sig primary ty)) = do
+    expectedTy `As` _ <- typeAnalysis ty
     e@(_ `As` actualTy) <- primaryAnalysis primary
     if actualTy == expectedTy || actualTy == UnresolvedType
         then pure (PrimaryCompound e `As` expectedTy)
         else fail ("expected type `" ++ show expectedTy ++ "` does not match actual type `" ++ show actualTy ++ "`: " ++ show sig)
-  where expectedTy = fromSyntaxType ty
 compoundAnalysis (Syntax.PrimaryCompound primary) = tymap PrimaryCompound <$> primaryAnalysis primary
 
 primaryAnalysis :: Syntax.Primary -> Analysis (Typed Primary)
 primaryAnalysis (Syntax.BlockPrimary block) = tymap BlockPrimary <$> blockAnalysis block
+primaryAnalysis (Syntax.TypePrimary ty) = tymap TypePrimary <$> typeAnalysis ty
 primaryAnalysis (Syntax.TuplePrimary exprs) = do
     typeds <- traverse exprAnalysis exprs
     pure (TuplePrimary typeds `As` TupleType (fmap typedTy typeds))
@@ -62,9 +63,18 @@ opAnalysis (Syntax.Op op lhs rhs) = do
 
 blockAnalysis :: Syntax.Block -> Analysis (Typed Block)
 blockAnalysis (Syntax.Block (Syntax.ParamList params) statements) = do
+    args <- traverse paramAnalysis params
     s <- traverse statementAnalysis statements
     let retTy = if null s then UnitType else typedTy (last s)
+        paramTys = typedTy <$> args
     pure $ Block (ParamList args) s `As` FunctionType paramTys retTy
-  where f (Syntax.Sig name ty) = name `As` fromSyntaxType ty
-        args = f <$> params
-        paramTys  = typedTy <$> args
+
+paramAnalysis :: Syntax.Param -> Analysis (Typed Param)
+paramAnalysis (Syntax.SigParam (Syntax.Sig name ty)) = (name `As`) . typedTy <$> typeAnalysis ty
+paramAnalysis (Syntax.InferredParam name)            = pure (name `As` UnresolvedType)
+
+typeAnalysis :: Syntax.Type -> Analysis (Typed Type)
+typeAnalysis (Syntax.IntType bits) = pure (IntType bits `As` KindType TypeKind)
+typeAnalysis (Syntax.NewType exprs) = do
+    e <- traverse exprAnalysis exprs
+    pure (NewType e `As` KindType TypeKind)

@@ -34,16 +34,14 @@ compoundParser = OpCompound      <$> opParser
 
 primaryParser :: Parser Primary
 primaryParser = BlockPrimary   <$> blockParser
-            <|> TuplePrimary   <$> tupleParser exprParser
+            <|> TypePrimary    <$> typeParser
+            <|> TuplePrimary   <$> tupleParser exprParser '(' ',' ')'
             <|> IdentPrimary   <$> L.identifierParser
             <|> IntegerPrimary <$> L.integerParser
             <|> StringPrimary  <$> L.stringLiteralParser
 
 sigParser :: Parser a -> Parser (Sig a)
 sigParser p = Sig <$> p <* L.charParser ':' <*> typeParser
-
-typeParser :: Parser Type
-typeParser = IntType 32 <$ L.charsParser "int"
 
 defParser :: Parser Def
 defParser = Def <$> L.identifierParser <* L.charParser '=' <*> exprParser
@@ -75,15 +73,19 @@ blockInnerParser = L.charParser '{'
                 *> many statementParser
                <*  L.charParser '}'
 
+typeParser :: Parser Type
+typeParser = IntType 32 <$  L.charsParser "int"
+         <|> NewType    <$> tupleParser exprParser '<' ',' '>'
+
 paramListParser :: Parser ParamList
-paramListParser = ParamList <$> tupleParser paramParser
+paramListParser = ParamList <$> tupleParser paramParser '(' ',' ')'
               <|> ParamList <$> pure <$> paramParser
 
-paramParser :: Parser (Sig Text)
-paramParser = sigParser L.identifierParser
-          <|> Sig <$> L.identifierParser <*> pure InferredType
+paramParser :: Parser Param
+paramParser = SigParam      <$> sigParser L.identifierParser
+          <|> InferredParam <$> L.identifierParser
 
-tupleParser :: Parser a -> Parser [a]
-tupleParser p = L.charParser '('
-             *> p `sepBy` L.charParser ','
-             <* L.charParser ')'
+tupleParser :: Parser a -> Char -> Char -> Char -> Parser [a]
+tupleParser p start sep end = L.charParser start
+                           *> p `sepBy` L.charParser sep
+                           <* L.charParser end
