@@ -26,7 +26,7 @@ data Primary = BlockPrimary Block
 data Sig a = Sig a Type
              deriving Show
 
-data Type = IntType
+data Type = IntType Integer
           | InferredType
             deriving Show
 

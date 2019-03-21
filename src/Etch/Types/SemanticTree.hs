@@ -5,14 +5,14 @@ import qualified Etch.Types.SyntaxTree as Syntax (Type(..))
 
 data Type = FunctionType [Type] Type
           | TupleType [Type]
-          | IntType
+          | IntType Integer
           | StringType
           | UnitType
           | UnresolvedType
             deriving (Eq, Show)
 
 fromSyntaxType :: Syntax.Type -> Type
-fromSyntaxType Syntax.IntType = IntType
+fromSyntaxType (Syntax.IntType bits) = IntType bits
 fromSyntaxType Syntax.InferredType = UnresolvedType
 
 data Typed a = As { typedVal :: a

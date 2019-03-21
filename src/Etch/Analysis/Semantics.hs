@@ -33,7 +33,7 @@ primaryAnalysis (Syntax.TuplePrimary exprs) = do
     typeds <- traverse exprAnalysis exprs
     pure (TuplePrimary typeds `As` TupleType (fmap typedTy typeds))
 primaryAnalysis (Syntax.IdentPrimary ident) = pure (IdentPrimary ident `As` UnresolvedType)
-primaryAnalysis (Syntax.IntegerPrimary x) = pure (IntegerPrimary x `As` IntType)
+primaryAnalysis (Syntax.IntegerPrimary x) = pure (IntegerPrimary x `As` IntType 32)
 primaryAnalysis (Syntax.StringPrimary s) = pure (StringPrimary s `As` StringType)
 
 defAnalysis :: Syntax.Def -> Analysis (Typed Def)
@@ -58,7 +58,7 @@ opAnalysis :: Syntax.Op -> Analysis (Typed Op)
 opAnalysis (Syntax.Op op lhs rhs) = do
     l <- primaryAnalysis lhs
     r <- compoundAnalysis rhs
-    pure (Op op l r `As` IntType)
+    pure (Op op l r `As` typedTy l)
 
 blockAnalysis :: Syntax.Block -> Analysis (Typed Block)
 blockAnalysis (Syntax.Block (Syntax.ParamList params) statements) = do

@@ -37,7 +37,7 @@ sigParser :: Parser a -> Parser (Sig a)
 sigParser p = Sig <$> p <* L.charParser ':' <*> typeParser
 
 typeParser :: Parser Type
-typeParser = IntType <$ L.charsParser "int"
+typeParser = IntType 32 <$ L.charsParser "int"
 
 defParser :: Parser Def
 defParser = Def <$> L.identifierParser <* L.charParser '=' <*> exprParser

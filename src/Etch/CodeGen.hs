@@ -136,7 +136,7 @@ functionBuilder lName (Block (ParamList params) statements `As` FunctionType _ r
 functionBuilder _ block  = error ("unhandled function: " ++ show block)
 
 fromType :: Type -> L.AST.Type
-fromType IntType = L.AST.i32
+fromType (IntType 32) = L.AST.i32
 fromType UnitType = L.AST.void
 fromType UnresolvedType = error "unresolved type"
 fromType ty = error ("unhandled type: " ++ show ty)
