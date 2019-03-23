@@ -12,9 +12,12 @@ data Expr = CallExpr Call
             deriving Show
 
 data Compound = OpCompound Op
-              | SigCompound (Sig Primary)
-              | PrimaryCompound Primary
+              | AtomCompound Atom
                 deriving Show
+
+data Atom = SigAtom (Sig Primary)
+          | PrimaryAtom Primary
+            deriving Show
 
 data Primary = BlockPrimary Block
              | TypePrimary Type
@@ -25,10 +28,11 @@ data Primary = BlockPrimary Block
                deriving Show
 
 data Sig a = Sig a Type
+           | AtomSig a Atom
              deriving Show
 
 data Type = IntType Integer
-          | NewType [Expr]
+          | NewType ParamList [Atom]
             deriving Show
 
 data Def = Def Text Expr
@@ -40,7 +44,7 @@ data Call = Call Compound Expr
 data Branch = Branch Compound Expr Expr
               deriving Show
 
-data Op = Op Text Primary Compound
+data Op = Op Text Atom Compound
           deriving Show
 
 data Block = Block ParamList [Statement]

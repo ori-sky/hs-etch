@@ -4,19 +4,19 @@ module Etch.Parser where
 
 import qualified Data.Attoparsec.Text as Atto (parse)
 import Data.Attoparsec.Text hiding (parse)
-import Data.List (intercalate)
-import Data.Text hiding (intercalate)
+import Data.Text
 import Control.Applicative ((<|>), many)
 import Control.Monad (when)
 import qualified Etch.Lexer as L
+import Etch.Types.ErrorContext
 import Etch.Types.SyntaxTree
 
-parse :: Text -> Either String [Statement]
+parse :: Text -> Either ErrorContext [Statement]
 parse text = f (Atto.parse statementParser text)
-  where f (Fail area contexts err)   = Left (unpack area ++ "\n" ++ err ++ "\n\n" ++ intercalate "\n" contexts)
-        f (Partial cont)          = f (cont "")
-        f (Done "" result)        = pure [result]
-        f (Done remainder result) = (result :) <$> parse remainder
+  where f (Fail area contexts err) = Left $ ErrorContext ("parser failure: " ++ err) (unpack area : contexts)
+        f (Partial cont)           = f (cont "")
+        f (Done "" result)         = pure [result]
+        f (Done remainder result)  = (result :) <$> parse remainder
 
 statementParser :: Parser Statement
 statementParser = DefStatement  <$> defParser
@@ -29,8 +29,11 @@ exprParser = CallExpr     <$> callParser
 
 compoundParser :: Parser Compound
 compoundParser = OpCompound      <$> opParser
-             <|> SigCompound     <$> sigParser primaryParser
-             <|> PrimaryCompound <$> primaryParser
+             <|> AtomCompound <$> atomParser
+
+atomParser :: Parser Atom
+atomParser = SigAtom     <$> sigParser primaryParser
+         <|> PrimaryAtom <$> primaryParser
 
 primaryParser :: Parser Primary
 primaryParser = BlockPrimary   <$> blockParser
@@ -41,7 +44,8 @@ primaryParser = BlockPrimary   <$> blockParser
             <|> StringPrimary  <$> L.stringLiteralParser
 
 sigParser :: Parser a -> Parser (Sig a)
-sigParser p = Sig <$> p <* L.charParser ':' <*> typeParser
+sigParser p = Sig     <$> p <* L.charParser ':' <*> typeParser
+          <|> AtomSig <$> p <* L.charParser ':' <*> atomParser
 
 defParser :: Parser Def
 defParser = Def <$> L.identifierParser <* L.charParser '=' <*> exprParser
@@ -58,7 +62,7 @@ branchParser = Branch <$> compoundParser
 
 opParser :: Parser Op
 opParser = do
-    lhs <- primaryParser
+    lhs <- atomParser
     op  <- L.operatorParser
     when (op == "->") (fail "operator `->` is reserved")
     when (op == "<-") (fail "operator `<-` is reserved")
@@ -75,7 +79,8 @@ blockInnerParser = L.charParser '{'
 
 typeParser :: Parser Type
 typeParser = IntType 32 <$  L.charsParser "int"
-         <|> NewType    <$> tupleParser exprParser '<' ',' '>'
+         <|> NewType    <$> paramListParser <* L.charsParser "->" <*> tupleParser atomParser '<' ',' '>'
+         <|> NewType (ParamList [])                               <$> tupleParser atomParser '<' ',' '>'
 
 paramListParser :: Parser ParamList
 paramListParser = ParamList <$> tupleParser paramParser '(' ',' ')'

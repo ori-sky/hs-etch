@@ -28,6 +28,7 @@ dependencies:
 - attoparsec >= 0.13
 - llvm-hs >= 7.0
 - llvm-hs-pure >= 7.0
+- pretty-show >= 1.6
 
 library:
   source-dirs: src

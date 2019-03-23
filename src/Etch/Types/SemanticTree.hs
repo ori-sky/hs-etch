@@ -7,17 +7,20 @@ data Type = FunctionType [Type] Type
           | IntType Integer
           | StringType
           | UnitType
-          | NewType [Typed Expr]
-          | KindType Kind
+          | NewType ParamList [Typed Primary]
+          | TypeType
           | UnresolvedType
+          | UnresolvedPrimaryType (Typed Primary)
             deriving (Eq, Show)
 
-data Kind = TypeKind
-            deriving (Eq, Show)
+data Typed a = a `As` Type
+             deriving (Eq, Show)
 
-data Typed a = As { typedVal :: a
-                  , typedTy  :: Type
-                  } deriving (Eq, Show)
+typedVal :: Typed a -> a
+typedVal (x `As` _) = x
+
+typedTy :: Typed a -> Type
+typedTy (_ `As` t) = t
 
 tymap :: (Typed a -> b) -> Typed a -> Typed b
 tymap f typed = f typed `As` typedTy typed
