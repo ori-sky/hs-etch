@@ -100,4 +100,4 @@ paramAnalysis (Syntax.SigParam (Syntax.Sig name ty))     = (name `As`) . typedTy
 --            then pure (pVal `As` expectedTy)
 --            else fail ("expected type `" ++ show expectedTy ++ "` does not match actual type `" ++ show actualTy ++ "`: " ++ show sig)
 paramAnalysis (Syntax.InferredParam name)            = pure (name `As` UnresolvedType)
-paramAnalysis param = error ("unhandled param: " ++ show param)
+paramAnalysis param = Left $ ErrorContext "unhandled param" [show param]
