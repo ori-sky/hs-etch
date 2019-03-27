@@ -2,19 +2,16 @@ module Etch.Types.SemanticTree where
 
 import Data.Text (Text)
 
-data Type = FunctionType [Type] Type
-          | TupleType [Type]
+data Type = TupleType [Type]
+          | FunctionType [Type] Type
           | IntType Integer
           | StringType
-          | UnitType
-          | NewType ParamList [Typed Primary]
-          | TypeType
           | UnresolvedType
           | UnresolvedPrimaryType (Typed Primary)
             deriving (Eq, Show)
 
 data Typed a = a `As` Type
-             deriving (Eq, Show)
+               deriving (Eq, Show)
 
 typedVal :: Typed a -> a
 typedVal (x `As` _) = x

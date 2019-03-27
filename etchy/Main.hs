@@ -19,6 +19,7 @@ main = do
     args <- getArgs
     contents <- hGetContents =<< getHandle args
     --print contents
+    pPrint (parse contents)
     case parse contents >>= Semantics.analysis of
         Left (ErrorContext err contexts) -> putStrLn (intercalate "\n\n" (err : contexts))
         Right statements                 -> do

@@ -1,1 +1,1 @@
-wrapper = t -> <t>
+wrapper = t -> (t)

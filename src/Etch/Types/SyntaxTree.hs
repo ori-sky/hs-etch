@@ -20,20 +20,14 @@ data Atom = SigAtom (Sig Primary)
             deriving Show
 
 data Primary = BlockPrimary Block
-             | TypePrimary Type
              | TuplePrimary [Expr]
              | IdentPrimary Text
              | IntegerPrimary Integer
              | StringPrimary Text
                deriving Show
 
-data Sig a = Sig a Type
-           | AtomSig a Atom
+data Sig a = Sig a Atom
              deriving Show
-
-data Type = IntType Integer
-          | NewType ParamList [Atom]
-            deriving Show
 
 data Def = Def Text Expr
            deriving Show

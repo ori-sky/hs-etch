@@ -1,1 +1,1 @@
-wint = <int>
+wint = (int)

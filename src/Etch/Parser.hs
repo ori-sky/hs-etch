@@ -28,7 +28,7 @@ exprParser = CallExpr     <$> callParser
          <|> CompoundExpr <$> compoundParser
 
 compoundParser :: Parser Compound
-compoundParser = OpCompound      <$> opParser
+compoundParser = OpCompound   <$> opParser
              <|> AtomCompound <$> atomParser
 
 atomParser :: Parser Atom
@@ -37,15 +37,13 @@ atomParser = SigAtom     <$> sigParser primaryParser
 
 primaryParser :: Parser Primary
 primaryParser = BlockPrimary   <$> blockParser
-            <|> TypePrimary    <$> typeParser
             <|> TuplePrimary   <$> tupleParser exprParser '(' ',' ')'
             <|> IdentPrimary   <$> L.identifierParser
             <|> IntegerPrimary <$> L.integerParser
             <|> StringPrimary  <$> L.stringLiteralParser
 
 sigParser :: Parser a -> Parser (Sig a)
-sigParser p = Sig     <$> p <* L.charParser ':' <*> typeParser
-          <|> AtomSig <$> p <* L.charParser ':' <*> atomParser
+sigParser p = Sig <$> p <* L.charParser ':' <*> atomParser
 
 defParser :: Parser Def
 defParser = Def <$> L.identifierParser <* L.charParser '=' <*> exprParser
@@ -76,11 +74,6 @@ blockInnerParser :: Parser [Statement]
 blockInnerParser = L.charParser '{'
                 *> many statementParser
                <*  L.charParser '}'
-
-typeParser :: Parser Type
-typeParser = IntType 32 <$  L.charsParser "int"
-         <|> NewType    <$> paramListParser <* L.charsParser "->" <*> tupleParser atomParser '<' ',' '>'
-         <|> NewType (ParamList [])                               <$> tupleParser atomParser '<' ',' '>'
 
 paramListParser :: Parser ParamList
 paramListParser = ParamList <$> tupleParser paramParser '(' ',' ')'
