@@ -28,13 +28,11 @@ main = do
           where defs = [ def | DefStatement def `As` _ <- statements ]
 
 getHandle :: [String] -> IO Handle
-getHandle = \case
-    ("-"  : _) -> pure stdin
-    (path : _) -> openBinaryFile path ReadMode
-    []         -> pure stdin
+getHandle ("-"  : _) = pure stdin
+getHandle (path : _) = openBinaryFile path ReadMode
+getHandle []         = pure stdin
 
 getSrcFile :: [String] -> String
-getSrcFile = \case
-    ("-"  : _) -> "a.e"
-    (path : _) -> path
-    []         -> "a.e"
+getSrcFile ("-"  : _) = "a.e"
+getSrcFile (path : _) = path
+getSrcFile []         = "a.e"

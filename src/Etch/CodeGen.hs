@@ -58,6 +58,7 @@ topLevelDefBuilder (Def name (CompoundExpr (PrimaryCompound (IntegerPrimary x `A
   where lName      = (L.AST.Name . ShortBS.toShort . encodeUtf8) name
         constant   = L.AST.Const.Int 32 x
         constantOp = L.AST.ConstantOperand constant
+topLevelDefBuilder (_ `As` UnresolvedPrimaryType primary) = error ("unresolved primary type:\n\n" ++ ppShow primary)
 topLevelDefBuilder def = error ("unhandled top-level def:\n\n" ++ ppShow def)
 
 statementBuilder :: Typed Statement -> Builder L.AST.Operand
