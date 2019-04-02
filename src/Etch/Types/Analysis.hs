@@ -1,3 +1,6 @@
+{-# LANGUAGE ConstraintKinds #-}
+{-# LANGUAGE FlexibleContexts #-}
+
 module Etch.Types.Analysis where
 
 import qualified Data.HashMap.Lazy as HM
@@ -20,4 +23,4 @@ defaultAnalysisState = AnalysisState { _analysisStateNextID = 1
                                      , _analysisStateScope  = HM.empty
                                      }
 
-type Analysis = StateT AnalysisState (Except ErrorContext)
+type MonadAnalysis m = (MonadError ErrorContext m, MonadState AnalysisState m)

@@ -1,11 +1,13 @@
+{-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE LambdaCase #-}
 
 module Main where
 
-import Control.Monad.Except (runExcept)
-import Control.Monad.State (evalStateT)
 import Data.List (intercalate)
+import Data.Text (Text)
 import Data.Text.IO (hGetContents)
+import Control.Monad.Except
+import Control.Monad.State (evalStateT)
 import Text.Show.Pretty (pPrint)
 import System.Environment (getArgs)
 import System.IO (IOMode(ReadMode), Handle, stdin, openBinaryFile)
@@ -23,17 +25,20 @@ main = do
     args <- getArgs
     contents <- hGetContents =<< getHandle args
     --print contents
-    pPrint (parse contents)
-    let r = runExcept $ do
-            p <- parse contents
-            s <- evalStateT (Semantics.analysis p) defaultAnalysisState
-            Resolution.analysis s
-    case r of
+    runExceptT (compile (getSrcFile args) contents) >>= \case
         Left (ErrorContext err contexts) -> putStrLn (intercalate "\n\n" (err : contexts))
-        Right statements                 -> do
-            pPrint statements
-            putStrLn =<< codeGen (defaultModule (getSrcFile args) defs)
-          where defs = [ def | DefStatement def `As` _ <- statements ]
+        Right code                       -> putStrLn code
+
+compile :: (MonadError ErrorContext m, MonadIO m) => String -> Text -> m String
+compile name contents = do
+    p <- parse contents
+    liftIO (pPrint p)
+    s <- evalStateT (Semantics.analysis p) defaultAnalysisState
+    liftIO (pPrint s)
+    r <- Resolution.analysis s
+    liftIO (pPrint r)
+    let defs = [ def | DefStatement def `As` _ <- r ]
+    liftIO $ codeGen (defaultModule name defs)
 
 getHandle :: [String] -> IO Handle
 getHandle ("-"  : _) = pure stdin

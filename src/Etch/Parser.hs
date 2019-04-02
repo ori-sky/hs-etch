@@ -1,3 +1,4 @@
+{-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE OverloadedStrings #-}
 
 module Etch.Parser where
@@ -6,13 +7,12 @@ import qualified Data.Attoparsec.Text as Atto (parse)
 import Data.Attoparsec.Text hiding (parse)
 import Data.Text
 import Control.Applicative ((<|>), many)
-import Control.Monad (when)
 import Control.Monad.Except
 import qualified Etch.Lexer as L
 import Etch.Types.ErrorContext
 import Etch.Types.SyntaxTree
 
-parse :: Text -> Except ErrorContext [Statement]
+parse :: MonadError ErrorContext m => Text -> m [Statement]
 parse text = f (Atto.parse statementParser text)
   where f (Fail area contexts err) = throwError $ ErrorContext ("parser failure: " ++ err) (unpack area : contexts)
         f (Partial cont)           = f (cont "")
