@@ -21,6 +21,7 @@ data Atom = SigAtom (Sig Primary)
 
 data Primary = BlockPrimary Block
              | TuplePrimary [Expr]
+             | NewPrimary [Expr]
              | IdentPrimary Text
              | IntegerPrimary Integer
              | StringPrimary Text

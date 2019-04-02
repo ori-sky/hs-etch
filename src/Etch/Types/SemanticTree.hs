@@ -3,6 +3,7 @@ module Etch.Types.SemanticTree where
 import Data.Text (Text)
 
 data Type = TupleType [Type]
+          | NewType Integer [Type]
           | FunctionType [Type] Type
           | IntType Integer
           | StringType
@@ -38,6 +39,7 @@ data Compound = OpCompound (Typed Op)
 data Primary = BlockPrimary (Typed Block)
              | TypePrimary (Typed Type)
              | TuplePrimary [Typed Expr]
+             | NewPrimary [Typed Expr]
              | IdentPrimary Text
              | IntegerPrimary Integer
              | StringPrimary Text

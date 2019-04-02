@@ -11,4 +11,4 @@ extra-deps:
 - llvm-hs-pure-7.0.0
 flags:
   llvm-hs:
-    shared-llvm: false
+    shared-llvm: true

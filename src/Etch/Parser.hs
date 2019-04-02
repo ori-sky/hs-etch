@@ -7,13 +7,14 @@ import Data.Attoparsec.Text hiding (parse)
 import Data.Text
 import Control.Applicative ((<|>), many)
 import Control.Monad (when)
+import Control.Monad.Except
 import qualified Etch.Lexer as L
 import Etch.Types.ErrorContext
 import Etch.Types.SyntaxTree
 
-parse :: Text -> Either ErrorContext [Statement]
+parse :: Text -> Except ErrorContext [Statement]
 parse text = f (Atto.parse statementParser text)
-  where f (Fail area contexts err) = Left $ ErrorContext ("parser failure: " ++ err) (unpack area : contexts)
+  where f (Fail area contexts err) = throwError $ ErrorContext ("parser failure: " ++ err) (unpack area : contexts)
         f (Partial cont)           = f (cont "")
         f (Done "" result)         = pure [result]
         f (Done remainder result)  = (result :) <$> parse remainder
@@ -38,6 +39,7 @@ atomParser = SigAtom     <$> sigParser primaryParser
 primaryParser :: Parser Primary
 primaryParser = BlockPrimary   <$> blockParser
             <|> TuplePrimary   <$> tupleParser exprParser '(' ',' ')'
+            <|> NewPrimary     <$> tupleParser exprParser '<' ',' '>'
             <|> IdentPrimary   <$> L.identifierParser
             <|> IntegerPrimary <$> L.integerParser
             <|> StringPrimary  <$> L.stringLiteralParser

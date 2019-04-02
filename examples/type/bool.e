@@ -1,3 +1,3 @@
-bool = ()
-true  = () : bool
-false = () : bool
+bool  = <>
+true  = <> : bool
+false = <> : bool

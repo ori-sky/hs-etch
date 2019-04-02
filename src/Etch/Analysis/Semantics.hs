@@ -2,12 +2,14 @@
 
 module Etch.Analysis.Semantics where
 
+import Control.Monad.Except
+import Control.Lens (use, (%=))
 import Text.Show.Pretty (ppShow)
 import qualified Etch.Types.SyntaxTree as Syntax
+import Etch.Types.Analysis
 import Etch.Types.ErrorContext
+import Etch.Types.Lenses
 import Etch.Types.SemanticTree
-
-type Analysis = Either ErrorContext
 
 analysis :: [Syntax.Statement] -> Analysis [Typed Statement]
 analysis statements = traverse statementAnalysis statements
@@ -31,16 +33,21 @@ atomAnalysis (Syntax.SigAtom sig@(Syntax.Sig primary atom)) = do
     atomAnalysis atom >>= \case
         TypePrimary (expectedTy `As` _) `As` _ -> if actualTy == expectedTy || actualTy == UnresolvedType
             then pure (pVal `As` expectedTy)
-            else Left $ ErrorContext "expected type does not match actual type" [ppShow expectedTy, ppShow actualTy, show sig]
+            else throwError $ ErrorContext "expected type does not match actual type" [ppShow expectedTy, ppShow actualTy, show sig]
         t@(_ `As` UnresolvedType)              -> pure (pVal `As` UnresolvedPrimaryType t)
-        typed                                  -> Left $ ErrorContext "not a type" [ppShow typed]
+        typed                                  -> throwError $ ErrorContext "not a type" [ppShow typed]
 atomAnalysis (Syntax.PrimaryAtom primary) = primaryAnalysis primary
 
 primaryAnalysis :: Syntax.Primary -> Analysis (Typed Primary)
 primaryAnalysis (Syntax.BlockPrimary block) = tymap BlockPrimary <$> blockAnalysis block
 primaryAnalysis (Syntax.TuplePrimary exprs) = do
     typeds <- traverse exprAnalysis exprs
-    pure (TuplePrimary typeds `As` TupleType (typedTy <$> typeds))
+    pure $ TuplePrimary typeds `As` TupleType (typedTy <$> typeds)
+primaryAnalysis (Syntax.NewPrimary exprs) = do
+    typeds <- traverse exprAnalysis exprs
+    newID <- use nextID
+    nextID %= succ
+    pure $ NewPrimary typeds `As` NewType newID (typedTy <$> typeds)
 primaryAnalysis (Syntax.IdentPrimary ident) = pure (IdentPrimary ident `As` UnresolvedType)
 primaryAnalysis (Syntax.IntegerPrimary x)   = pure (IntegerPrimary x   `As` IntType 32)
 primaryAnalysis (Syntax.StringPrimary s)    = pure (StringPrimary s    `As` StringType)
@@ -54,7 +61,7 @@ callAnalysis (Syntax.Call callable expr) = do
     e <- exprAnalysis expr
     case typedTy c of
         FunctionType _ retTy -> pure (Call c e `As` retTy)
-        _                    -> Left $ ErrorContext "compound is not callable" [ppShow c]
+        _                    -> throwError $ ErrorContext "compound is not callable" [ppShow c]
 
 branchAnalysis :: Syntax.Branch -> Analysis (Typed Branch)
 branchAnalysis (Syntax.Branch cond trueBranch falseBranch) = do

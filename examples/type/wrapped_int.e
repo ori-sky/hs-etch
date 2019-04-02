@@ -1,1 +1,1 @@
-wint = (int)
+wint = x -> <x : int>

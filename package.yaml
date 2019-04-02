@@ -25,6 +25,7 @@ dependencies:
 - bytestring >= 0.10
 - unordered-containers
 - mtl >= 2.2
+- lens >= 4.16
 - attoparsec >= 0.13
 - llvm-hs >= 7.0
 - llvm-hs-pure >= 7.0
