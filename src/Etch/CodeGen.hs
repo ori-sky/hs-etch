@@ -46,18 +46,19 @@ moduleGen m = evalState (IR.buildModuleT name moduleBuilder) defaultContext
   where name          = (ShortBS.toShort . encodeUtf8 . T.pack . moduleName) m
         moduleBuilder = traverse_ topLevelDefBuilder (moduleDefs m)
 
-topLevelDefBuilder :: Typed Def -> ModuleBuilder L.AST.Operand
+topLevelDefBuilder :: Typed Def -> ModuleBuilder (Maybe L.AST.Operand)
 topLevelDefBuilder (Def name (CompoundExpr (PrimaryCompound (BlockPrimary block `As` _) `As` _) `As` _) `As` _) = do
     fn <- functionBuilder lName block
     modify (contextInsert name fn)
-    pure fn
+    pure (Just fn)
   where lName = (L.AST.Name . ShortBS.toShort . encodeUtf8) name
 topLevelDefBuilder (Def name (CompoundExpr (PrimaryCompound (IntegerPrimary x `As` _) `As` _) `As` _) `As` _) = do
     modify (contextInsert name constantOp)
-    IR.global lName L.AST.i32 constant
+    Just <$> IR.global lName L.AST.i32 constant
   where lName      = (L.AST.Name . ShortBS.toShort . encodeUtf8) name
         constant   = L.AST.Const.Int 32 x
         constantOp = L.AST.ConstantOperand constant
+topLevelDefBuilder (_ `As` NewType _ _) = pure Nothing
 topLevelDefBuilder (_ `As` UnresolvedPrimaryType primary) = error ("unresolved primary type:\n\n" ++ ppShow primary)
 topLevelDefBuilder def = error ("unhandled top-level def:\n\n" ++ ppShow def)
 
