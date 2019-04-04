@@ -1,3 +1,4 @@
+{-# LANGUAGE ConstraintKinds #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE LambdaCase #-}
 
@@ -5,6 +6,7 @@ module Etch.Analysis.Semantics where
 
 import qualified Data.HashMap.Lazy as HM
 import Control.Monad.Except
+import Control.Monad.State
 import Control.Lens (use, (%=))
 import Text.Show.Pretty (ppShow)
 import qualified Etch.Types.SyntaxTree as Syntax
@@ -13,11 +15,13 @@ import Etch.Types.ErrorContext
 import Etch.Types.Lenses
 import Etch.Types.SemanticTree
 
+type MonadAnalysis m = (MonadError ErrorContext m, MonadState AnalysisState m)
+
 analysis :: MonadAnalysis m => [Syntax.Statement] -> m [Typed Statement]
 analysis statements = traverse statementAnalysis statements
 
 statementAnalysis :: MonadAnalysis m => Syntax.Statement -> m (Typed Statement)
-statementAnalysis (Syntax.DefStatement expr)  = tymap DefStatement  <$> defAnalysis expr
+statementAnalysis (Syntax.DefStatement def)   = tymap DefStatement  <$> defAnalysis def
 statementAnalysis (Syntax.ExprStatement expr) = tymap ExprStatement <$> exprAnalysis expr
 
 exprAnalysis :: MonadAnalysis m => Syntax.Expr -> m (Typed Expr)
@@ -49,7 +53,7 @@ primaryAnalysis (Syntax.NewPrimary exprs) = do
     typeds <- traverse exprAnalysis exprs
     newID <- use nextID
     nextID %= succ
-    pure $ NewPrimary typeds `As` NewType newID (typedTy <$> typeds)
+    pure $ NewPrimary newID typeds `As` NewType newID (typedTy <$> typeds)
 primaryAnalysis (Syntax.IdentPrimary ident) = pure (IdentPrimary ident `As` UnresolvedType)
 primaryAnalysis (Syntax.IntegerPrimary x)   = pure (IntegerPrimary x   `As` IntType 32)
 primaryAnalysis (Syntax.StringPrimary s)    = pure (StringPrimary s    `As` StringType)
@@ -90,7 +94,9 @@ blockAnalysis (Syntax.Block (Syntax.ParamList params) statements) = do
     pure $ Block (ParamList args) s `As` FunctionType paramTys retTy
 
 paramAnalysis :: MonadAnalysis m => Syntax.Param -> m (Typed Param)
-paramAnalysis (Syntax.SigParam (Syntax.Sig name atom)) = (name `As`) . typedTy <$> atomAnalysis atom
+paramAnalysis (Syntax.SigParam (Syntax.Sig name atom)) = do
+    a <- atomAnalysis atom
+    pure (name `As` UnresolvedPrimaryType a)
 -- paramAnalysis (Syntax.SigParam (Syntax.AtomSig name ty)) = atomAnalysis >>= \case
 --     TypePrimary t `As` _ ->
 

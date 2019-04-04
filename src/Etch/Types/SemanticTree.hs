@@ -39,7 +39,7 @@ data Compound = OpCompound (Typed Op)
 data Primary = BlockPrimary (Typed Block)
              | TypePrimary (Typed Type)
              | TuplePrimary [Typed Expr]
-             | NewPrimary [Typed Expr]
+             | NewPrimary Integer [Typed Expr]
              | IdentPrimary Text
              | IntegerPrimary Integer
              | StringPrimary Text
