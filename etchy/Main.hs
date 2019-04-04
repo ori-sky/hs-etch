@@ -7,7 +7,8 @@ import Data.List (intercalate)
 import Data.Text (Text)
 import Data.Text.IO (hGetContents)
 import Control.Monad.Except
-import Control.Monad.State (evalStateT)
+import Control.Monad.Reader (runReaderT)
+import Control.Monad.State (runStateT)
 import Text.Show.Pretty (pPrint)
 import System.Environment (getArgs)
 import System.IO (IOMode(ReadMode), Handle, stdin, openBinaryFile)
@@ -33,11 +34,12 @@ compile :: (MonadError ErrorContext m, MonadIO m) => String -> Text -> m String
 compile name contents = do
     p <- parse contents
     liftIO (pPrint p)
-    s <- evalStateT (Semantics.analysis p) defaultAnalysisState
-    liftIO (pPrint s)
-    r <- Resolution.analysis s
-    liftIO (pPrint r)
-    let defs = [ def | DefStatement def `As` _ <- r ]
+    (sem, state) <- runStateT (Semantics.analysis p) defaultAnalysisState
+    liftIO (pPrint sem)
+    liftIO (pPrint state)
+    res <- runReaderT (Resolution.analysis sem) state
+    liftIO (pPrint res)
+    let defs = [ def | DefStatement def `As` _ <- res ]
     liftIO $ codeGen (defaultModule name defs)
 
 getHandle :: [String] -> IO Handle

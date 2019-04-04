@@ -3,6 +3,7 @@
 
 module Etch.Analysis.Semantics where
 
+import qualified Data.HashMap.Lazy as HM
 import Control.Monad.Except
 import Control.Lens (use, (%=))
 import Text.Show.Pretty (ppShow)
@@ -54,7 +55,10 @@ primaryAnalysis (Syntax.IntegerPrimary x)   = pure (IntegerPrimary x   `As` IntT
 primaryAnalysis (Syntax.StringPrimary s)    = pure (StringPrimary s    `As` StringType)
 
 defAnalysis :: MonadAnalysis m => Syntax.Def -> m (Typed Def)
-defAnalysis (Syntax.Def name expr) = tymap (Def name) <$> exprAnalysis expr
+defAnalysis (Syntax.Def name expr) = do
+    e <- exprAnalysis expr
+    scope %= HM.insert name (Term (typedTy e) HM.empty)
+    pure $ tymap (Def name) e
 
 callAnalysis :: MonadAnalysis m => Syntax.Call -> m (Typed Call)
 callAnalysis (Syntax.Call callable expr) = do
