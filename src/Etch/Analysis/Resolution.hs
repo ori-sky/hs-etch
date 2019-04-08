@@ -5,16 +5,15 @@
 module Etch.Analysis.Resolution where
 
 import qualified Data.HashMap.Lazy as HM
-import Data.Text (unpack)
 import Control.Monad.Except
-import Control.Monad.Reader
-import Control.Lens (view)
+import Control.Monad.State
+import Control.Lens (use, (%=))
 import Etch.Types.Analysis
 import Etch.Types.ErrorContext
 import Etch.Types.Lenses
 import Etch.Types.SemanticTree
 
-type MonadAnalysis m = (MonadError ErrorContext m, MonadReader AnalysisState m)
+type MonadAnalysis m = (MonadError ErrorContext m, MonadState AnalysisState m)
 
 analysis :: MonadAnalysis m => [Typed Statement] -> m [Typed Statement]
 analysis statements = traverse statementAnalysis statements
@@ -54,7 +53,7 @@ primaryAnalysis (NewPrimary newID exprs `As` UnresolvedPrimaryType primary) = do
 --primaryAnalysis (IdentPrimary ident `As` UnresolvedType) = error ("type resolution not implemented yet (" ++ unpack ident ++ ")")
 primaryAnalysis (IdentPrimary "int" `As` UnresolvedType) = pure (IdentPrimary "int" `As` IntType 32)
 primaryAnalysis (IdentPrimary name  `As` UnresolvedType) = do
-    hm <- view scope
+    hm <- use scope
     let resolvedTy = case HM.lookup name hm of
             Nothing          -> UnresolvedType
             Just (Term ty _) -> ty
@@ -62,7 +61,10 @@ primaryAnalysis (IdentPrimary name  `As` UnresolvedType) = do
 primaryAnalysis t = pure t
 
 defAnalysis :: MonadAnalysis m => Typed Def -> m (Typed Def)
-defAnalysis (Def name expr `As` _) = tymap (Def name) <$> exprAnalysis expr
+defAnalysis (Def name expr `As` _) = do
+    e <- exprAnalysis expr
+    scope %= HM.insert name (Term (typedTy e) HM.empty)
+    pure $ tymap (Def name) e
 
 blockAnalysis :: MonadAnalysis m => Typed Block -> m (Typed Block)
 blockAnalysis (Block (ParamList params) statements `As` _) = do
@@ -73,7 +75,10 @@ blockAnalysis (Block (ParamList params) statements `As` _) = do
     pure $ Block (ParamList args) s `As` FunctionType paramTys retTy
 
 opAnalysis :: MonadAnalysis m => Typed Op -> m (Typed Op)
-opAnalysis = undefined
+opAnalysis (Op op lhs rhs `As` _) = do
+    l <- primaryAnalysis lhs
+    r <- compoundAnalysis rhs
+    pure (Op op l r `As` typedTy l)
 
 branchAnalysis :: MonadAnalysis m => Typed Branch -> m (Typed Branch)
 branchAnalysis = undefined
@@ -85,6 +90,12 @@ typeAnalysis :: MonadAnalysis m => Typed Type -> m (Typed Type)
 typeAnalysis = undefined
 
 paramAnalysis :: MonadAnalysis m => Typed Param -> m (Typed Param)
-paramAnalysis (name `As` UnresolvedType) = error ("parameter type inference not implemented yet (" ++ unpack name ++ ")")
-paramAnalysis (name `As` UnresolvedPrimaryType primary) = (name `As`) . typedTy <$> primaryAnalysis primary
+paramAnalysis (name `As` UnresolvedType) = do
+    scope %= HM.insert name (Term (IntType 32) HM.empty) -- XXX: need scopes
+    pure (name `As` IntType 32)
+--paramAnalysis (name `As` UnresolvedType) = error ("parameter type inference not implemented yet (" ++ unpack name ++ ")")
+paramAnalysis (name `As` UnresolvedPrimaryType primary) = do
+    p <- primaryAnalysis primary
+    scope %= HM.insert name (Term (typedTy p) HM.empty) -- XXX: need scopes
+    pure (name `As` typedTy p)
 paramAnalysis t = pure t

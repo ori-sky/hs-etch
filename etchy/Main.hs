@@ -7,7 +7,6 @@ import Data.List (intercalate)
 import Data.Text (Text)
 import Data.Text.IO (hGetContents)
 import Control.Monad.Except
-import Control.Monad.Reader (runReaderT)
 import Control.Monad.State (runStateT)
 import Text.Show.Pretty (pPrint)
 import System.Environment (getArgs)
@@ -36,10 +35,12 @@ compile name contents = do
     liftIO (pPrint p)
     (sem, state) <- runStateT (Semantics.analysis p) defaultAnalysisState
     liftIO (pPrint sem)
-    liftIO (pPrint state)
-    res <- runReaderT (Resolution.analysis sem) state
-    liftIO (pPrint res)
-    let defs = [ def | DefStatement def `As` _ <- res ]
+    (res2, state2) <- runStateT (Resolution.analysis sem) state
+    (res3, state3) <- runStateT (Resolution.analysis res2) state2
+    (res4, state4) <- runStateT (Resolution.analysis res3) state3
+    liftIO (pPrint state4)
+    liftIO (pPrint res4)
+    let defs = [ def | DefStatement def `As` _ <- res4 ]
     liftIO $ codeGen (defaultModule name defs)
 
 getHandle :: [String] -> IO Handle

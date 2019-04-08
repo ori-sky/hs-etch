@@ -96,6 +96,7 @@ blockAnalysis (Syntax.Block (Syntax.ParamList params) statements) = do
 paramAnalysis :: MonadAnalysis m => Syntax.Param -> m (Typed Param)
 paramAnalysis (Syntax.SigParam (Syntax.Sig name atom)) = do
     a <- atomAnalysis atom
+    scope %= HM.insert name (Term (typedTy a) HM.empty) -- XXX: need scopes
     pure (name `As` UnresolvedPrimaryType a)
 -- paramAnalysis (Syntax.SigParam (Syntax.AtomSig name ty)) = atomAnalysis >>= \case
 --     TypePrimary t `As` _ ->
