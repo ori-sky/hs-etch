@@ -8,6 +8,7 @@ import qualified Data.HashMap.Lazy as HM
 import Control.Monad.Except
 import Control.Monad.State
 import Control.Lens (use, (%=))
+import Text.Show.Pretty (ppShow)
 import Etch.Types.Analysis
 import Etch.Types.ErrorContext
 import Etch.Types.Lenses
@@ -23,7 +24,7 @@ statementAnalysis (DefStatement def   `As` _) = tymap DefStatement  <$> defAnaly
 statementAnalysis (ExprStatement expr `As` _) = tymap ExprStatement <$> exprAnalysis expr
 
 exprAnalysis :: MonadAnalysis m => Typed Expr -> m (Typed Expr)
---exprAnalysis (CallExpr call         `As` _) = tymap CallExpr     <$> callAnalysis call
+exprAnalysis (CallExpr call         `As` _) = tymap CallExpr     <$> callAnalysis call
 --exprAnalysis (BranchExpr branch     `As` _) = tymap BranchExpr   <$> branchAnalysis branch
 exprAnalysis (CompoundExpr compound `As` _) = tymap CompoundExpr <$> compoundAnalysis compound
 exprAnalysis t = pure t
@@ -80,11 +81,17 @@ opAnalysis (Op op lhs rhs `As` _) = do
     r <- compoundAnalysis rhs
     pure (Op op l r `As` typedTy l)
 
+callAnalysis :: MonadAnalysis m => Typed Call -> m (Typed Call)
+callAnalysis (Call callable expr `As` _) = do
+    c <- compoundAnalysis callable
+    e <- exprAnalysis expr
+    case typedTy c of
+        FunctionType _ retTy -> pure (Call c e `As` retTy)
+        UnresolvedType       -> pure (Call c e `As` UnresolvedType)
+        _                    -> throwError $ ErrorContext "compound is not callable" [ppShow c]
+
 branchAnalysis :: MonadAnalysis m => Typed Branch -> m (Typed Branch)
 branchAnalysis = undefined
-
-callAnalysis :: MonadAnalysis m => Typed Call -> m (Typed Call)
-callAnalysis = undefined
 
 typeAnalysis :: MonadAnalysis m => Typed Type -> m (Typed Type)
 typeAnalysis = undefined

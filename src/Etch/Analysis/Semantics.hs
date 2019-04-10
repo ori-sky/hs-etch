@@ -70,6 +70,7 @@ callAnalysis (Syntax.Call callable expr) = do
     e <- exprAnalysis expr
     case typedTy c of
         FunctionType _ retTy -> pure (Call c e `As` retTy)
+        UnresolvedType       -> pure (Call c e `As` UnresolvedType)
         _                    -> throwError $ ErrorContext "compound is not callable" [ppShow c]
 
 branchAnalysis :: MonadAnalysis m => Syntax.Branch -> m (Typed Branch)
