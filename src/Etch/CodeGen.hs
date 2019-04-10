@@ -118,6 +118,7 @@ opBuilder (Op op lhs rhs `As` _) = do
         "*"  -> IR.mul l r
         "==" -> IR.icmp L.AST.EQ l r
         "<"  -> IR.icmp L.AST.SLT l r
+        ">"  -> IR.icmp L.AST.SGT l r
         o    -> error ("unhandled operator: " ++ show o)
 
 blockBuilder :: Typed Block -> Builder L.AST.Operand

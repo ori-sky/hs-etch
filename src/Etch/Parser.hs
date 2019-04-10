@@ -57,7 +57,6 @@ branchParser :: Parser Branch
 branchParser = Branch <$> compoundParser
                       <*  L.charParser '?'
                       <*> exprParser
-                      <*  L.charParser ':'
                       <*> exprParser
 
 opParser :: Parser Op
