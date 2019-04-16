@@ -25,6 +25,7 @@ statementAnalysis (Syntax.DefStatement def)   = tymap DefStatement  <$> defAnaly
 statementAnalysis (Syntax.ExprStatement expr) = tymap ExprStatement <$> exprAnalysis expr
 
 exprAnalysis :: MonadAnalysis m => Syntax.Expr -> m (Typed Expr)
+exprAnalysis (Syntax.FunctionExpr function) = tymap FunctionExpr <$> functionAnalysis function
 exprAnalysis (Syntax.CallExpr call)         = tymap CallExpr     <$> callAnalysis call
 exprAnalysis (Syntax.BranchExpr branch)     = tymap BranchExpr   <$> branchAnalysis branch
 exprAnalysis (Syntax.CompoundExpr compound) = tymap CompoundExpr <$> compoundAnalysis compound
@@ -64,6 +65,13 @@ defAnalysis (Syntax.Def name expr) = do
     scope %= HM.insert name (Term (typedTy e) HM.empty)
     pure $ tymap (Def name) e
 
+functionAnalysis :: MonadAnalysis m => Syntax.Function -> m (Typed Function)
+functionAnalysis (Syntax.Function (Syntax.ParamList params) expr) = do
+    args <- traverse paramAnalysis params
+    e <- exprAnalysis expr
+    let paramTys = typedTy <$> args
+    pure $ Function (ParamList args) e `As` FunctionType paramTys (typedTy e)
+
 callAnalysis :: MonadAnalysis m => Syntax.Call -> m (Typed Call)
 callAnalysis (Syntax.Call callable expr) = do
     c <- compoundAnalysis callable
@@ -87,12 +95,10 @@ opAnalysis (Syntax.Op op lhs rhs) = do
     pure (Op op l r `As` typedTy l)
 
 blockAnalysis :: MonadAnalysis m => Syntax.Block -> m (Typed Block)
-blockAnalysis (Syntax.Block (Syntax.ParamList params) statements) = do
-    args <- traverse paramAnalysis params
+blockAnalysis (Syntax.Block statements) = do
     s <- traverse statementAnalysis statements
     let retTy = if null s then TupleType [] else typedTy (last s)
-        paramTys = typedTy <$> args
-    pure $ Block (ParamList args) s `As` FunctionType paramTys retTy
+    pure $ Block s `As` retTy
 
 paramAnalysis :: MonadAnalysis m => Syntax.Param -> m (Typed Param)
 paramAnalysis (Syntax.SigParam (Syntax.Sig name atom)) = do

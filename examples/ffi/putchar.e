@@ -1,6 +1,6 @@
 @putchar : int -> ()
 
-main = {
+main = () -> {
 	@putchar <- 'h'
 	@putchar <- 'e'
 	@putchar <- 'l'

@@ -20,6 +20,7 @@ import qualified LLVM.AST.Constant          as L.AST.Const
 --import qualified LLVM.AST.Global            as L.AST
 import qualified LLVM.AST.IntegerPredicate  as L.AST
 import qualified LLVM.AST.Type              as L.AST (void, i32)
+import qualified LLVM.AST.Typed             as L.AST (typeOf)
 import qualified LLVM.IRBuilder.Constant    as IR
 import qualified LLVM.IRBuilder.Instruction as IR
 import qualified LLVM.IRBuilder.Module      as IR
@@ -47,8 +48,8 @@ moduleGen m = evalState (IR.buildModuleT name moduleBuilder) defaultContext
         moduleBuilder = traverse_ topLevelDefBuilder (moduleDefs m)
 
 topLevelDefBuilder :: Typed Def -> ModuleBuilder (Maybe L.AST.Operand)
-topLevelDefBuilder (Def name (CompoundExpr (PrimaryCompound (BlockPrimary block `As` _) `As` _) `As` _) `As` _) = do
-    fn <- functionBuilder lName block
+topLevelDefBuilder (Def name (FunctionExpr function `As` _) `As` _) = do
+    fn <- topLevelFunctionBuilder lName function
     modify (contextInsert name fn)
     pure (Just fn)
   where lName = (L.AST.Name . ShortBS.toShort . encodeUtf8) name
@@ -62,11 +63,28 @@ topLevelDefBuilder (_ `As` NewType _ _) = pure Nothing
 topLevelDefBuilder (_ `As` UnresolvedPrimaryType primary) = error ("unresolved primary type:\n\n" ++ ppShow primary)
 topLevelDefBuilder def = error ("unhandled top-level def:\n\n" ++ ppShow def)
 
+topLevelFunctionBuilder :: L.AST.Name -> Typed Function -> ModuleBuilder L.AST.Operand
+topLevelFunctionBuilder lName (Function (ParamList params) expr `As` FunctionType _ retTy) =
+    IR.function lName lArgs (fromType retTy) $ \argOperands -> do
+        result <- locally $ do
+            modify $ contextInsertScope (HM.fromList (zip argNames argOperands))
+            exprBuilder expr
+        case L.AST.typeOf result of
+            L.AST.VoidType -> IR.retVoid
+            _              -> IR.ret result
+  where f (argName `As` argTy) = (fromType argTy, IR.ParameterName . ShortBS.toShort . encodeUtf8 $ argName)
+        lArgs    = f        <$> params
+        argNames = typedVal <$> params
+topLevelFunctionBuilder _ function  = error ("unhandled function:\n\n" ++ ppShow function)
+
 statementBuilder :: Typed Statement -> Builder L.AST.Operand
 statementBuilder (DefStatement def   `As` _) = defBuilder def
 statementBuilder (ExprStatement expr `As` _) = exprBuilder expr
 
 exprBuilder :: Typed Expr -> Builder L.AST.Operand
+exprBuilder (FunctionExpr function `As` _) = do
+    nextID <- fromInteger <$> contextStateNextID
+    lift $ topLevelFunctionBuilder (L.AST.UnName nextID) function
 exprBuilder (CallExpr call         `As` _) = callBuilder call
 exprBuilder (BranchExpr branch     `As` _) = branchBuilder branch
 exprBuilder (CompoundExpr compound `As` _) = compoundBuilder compound
@@ -122,21 +140,11 @@ opBuilder (Op op lhs rhs `As` _) = do
         o    -> error ("unhandled operator: " ++ show o)
 
 blockBuilder :: Typed Block -> Builder L.AST.Operand
-blockBuilder block = do
-    nextID <- fromInteger <$> contextStateNextID
-    lift $ functionBuilder (L.AST.UnName nextID) block
-
-functionBuilder :: L.AST.Name -> Typed Block -> ModuleBuilder L.AST.Operand
-functionBuilder lName (Block (ParamList params) statements `As` FunctionType _ retTy) =
-    IR.function lName lArgs (fromType retTy) $ \argOperands -> do
-        results <- locally $ do
-            modify $ contextInsertScope (HM.fromList (zip argNames argOperands))
-            traverse statementBuilder statements
-        when (not (null results)) (IR.ret (last results))
-  where f (argName `As` argTy) = (fromType argTy, IR.ParameterName . ShortBS.toShort . encodeUtf8 $ argName)
-        lArgs    = f        <$> params
-        argNames = typedVal <$> params
-functionBuilder _ block  = error ("unhandled block:\n\n" ++ ppShow block)
+blockBuilder (Block [] `As` _) = pure $ L.AST.ConstantOperand (L.AST.Const.Undef L.AST.void)
+blockBuilder (Block statements `As` _) = do
+    --nextID <- fromInteger <$> contextStateNextID
+    last <$> traverse statementBuilder statements
+    --lift $ topLevelFunctionBuilder (L.AST.UnName nextID) block
 
 fromType :: Type -> L.AST.Type
 fromType (TupleType [])                  = L.AST.void

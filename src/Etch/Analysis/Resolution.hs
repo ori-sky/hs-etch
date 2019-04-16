@@ -24,6 +24,7 @@ statementAnalysis (DefStatement def   `As` _) = tymap DefStatement  <$> defAnaly
 statementAnalysis (ExprStatement expr `As` _) = tymap ExprStatement <$> exprAnalysis expr
 
 exprAnalysis :: MonadAnalysis m => Typed Expr -> m (Typed Expr)
+exprAnalysis (FunctionExpr function `As` _) = tymap FunctionExpr <$> functionAnalysis function
 exprAnalysis (CallExpr call         `As` _) = tymap CallExpr     <$> callAnalysis call
 --exprAnalysis (BranchExpr branch     `As` _) = tymap BranchExpr   <$> branchAnalysis branch
 exprAnalysis (CompoundExpr compound `As` _) = tymap CompoundExpr <$> compoundAnalysis compound
@@ -67,13 +68,24 @@ defAnalysis (Def name expr `As` _) = do
     scope %= HM.insert name (Term (typedTy e) HM.empty)
     pure $ tymap (Def name) e
 
-blockAnalysis :: MonadAnalysis m => Typed Block -> m (Typed Block)
-blockAnalysis (Block (ParamList params) statements `As` _) = do
+functionAnalysis :: MonadAnalysis m => Typed Function -> m (Typed Function)
+functionAnalysis (Function (ParamList params) expr `As` _) = do
     args <- traverse paramAnalysis params
+    e <- exprAnalysis expr
+    let paramTys = typedTy <$> args
+    pure $ Function (ParamList args) e `As` FunctionType paramTys (typedTy e)
+
+blockAnalysis :: MonadAnalysis m => Typed Block -> m (Typed Block)
+--blockAnalysis (Block (ParamList params) statements `As` _) = do
+--    args <- traverse paramAnalysis params
+--    s <- traverse statementAnalysis statements
+--    let retTy = if null s then TupleType [] else typedTy (last s)
+--        paramTys = typedTy <$> args
+--    pure $ Block (ParamList args) s `As` FunctionType paramTys retTy
+blockAnalysis (Block statements `As` _) = do
     s <- traverse statementAnalysis statements
     let retTy = if null s then TupleType [] else typedTy (last s)
-        paramTys = typedTy <$> args
-    pure $ Block (ParamList args) s `As` FunctionType paramTys retTy
+    pure $ Block s `As` retTy
 
 opAnalysis :: MonadAnalysis m => Typed Op -> m (Typed Op)
 opAnalysis (Op op lhs rhs `As` _) = do

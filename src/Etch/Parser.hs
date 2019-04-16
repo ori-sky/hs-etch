@@ -24,7 +24,8 @@ statementParser = DefStatement  <$> defParser
               <|> ExprStatement <$> exprParser
 
 exprParser :: Parser Expr
-exprParser = CallExpr     <$> callParser
+exprParser = FunctionExpr <$> functionParser
+         <|> CallExpr     <$> callParser
          <|> BranchExpr   <$> branchParser
          <|> CompoundExpr <$> compoundParser
 
@@ -50,6 +51,9 @@ sigParser p = Sig <$> p <* L.charParser ':' <*> atomParser
 defParser :: Parser Def
 defParser = Def <$> L.identifierParser <* L.charParser '=' <*> exprParser
 
+functionParser :: Parser Function
+functionParser = Function <$> paramListParser <* L.charsParser "->" <*> exprParser
+
 callParser :: Parser Call
 callParser = Call <$> compoundParser <* L.charsParser "<-" <*> exprParser
 
@@ -68,13 +72,9 @@ opParser = do
     Op op lhs <$> compoundParser
 
 blockParser :: Parser Block
-blockParser = Block <$> paramListParser <* L.charsParser "->" <*> blockInnerParser
-          <|> Block (ParamList [])                            <$> blockInnerParser
-
-blockInnerParser :: Parser [Statement]
-blockInnerParser = L.charParser '{'
-                *> many statementParser
-               <*  L.charParser '}'
+blockParser = do
+    L.charParser '{'
+    Block <$> many statementParser <* L.charParser '}'
 
 paramListParser :: Parser ParamList
 paramListParser = ParamList <$> tupleParser paramParser '(' ',' ')'

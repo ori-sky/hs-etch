@@ -6,7 +6,8 @@ data Statement = DefStatement Def
                | ExprStatement Expr
                  deriving Show
 
-data Expr = CallExpr Call
+data Expr = FunctionExpr Function
+          | CallExpr Call
           | BranchExpr Branch
           | CompoundExpr Compound
             deriving Show
@@ -33,6 +34,9 @@ data Sig a = Sig a Atom
 data Def = Def Text Expr
            deriving Show
 
+data Function = Function ParamList Expr
+                deriving Show
+
 data Call = Call Compound Expr
             deriving Show
 
@@ -42,7 +46,7 @@ data Branch = Branch Compound Expr Expr
 data Op = Op Text Atom Compound
           deriving Show
 
-data Block = Block ParamList [Statement]
+data Block = Block [Statement]
              deriving Show
 
 data ParamList = ParamList [Param]

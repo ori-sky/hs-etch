@@ -27,7 +27,8 @@ data Statement = DefStatement (Typed Def)
                | ExprStatement (Typed Expr)
                  deriving (Eq, Show)
 
-data Expr = CallExpr (Typed Call)
+data Expr = FunctionExpr (Typed Function)
+          | CallExpr (Typed Call)
           | BranchExpr (Typed Branch)
           | CompoundExpr (Typed Compound)
             deriving (Eq, Show)
@@ -48,6 +49,9 @@ data Primary = BlockPrimary (Typed Block)
 data Def = Def Text (Typed Expr)
            deriving (Eq, Show)
 
+data Function = Function ParamList (Typed Expr)
+                deriving (Eq, Show)
+
 data Call = Call (Typed Compound) (Typed Expr)
             deriving (Eq, Show)
 
@@ -57,7 +61,7 @@ data Branch = Branch (Typed Compound) (Typed Expr) (Typed Expr)
 data Op = Op Text (Typed Primary) (Typed Compound)
           deriving (Eq, Show)
 
-data Block = Block ParamList [Typed Statement]
+data Block = Block [Typed Statement]
              deriving (Eq, Show)
 
 data ParamList = ParamList [Typed Param]
