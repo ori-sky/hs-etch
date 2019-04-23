@@ -26,9 +26,8 @@ statementAnalysis (ExprStatement expr `As` _) = tymap ExprStatement <$> exprAnal
 exprAnalysis :: MonadAnalysis m => Typed Expr -> m (Typed Expr)
 exprAnalysis (FunctionExpr function `As` _) = tymap FunctionExpr <$> functionAnalysis function
 exprAnalysis (CallExpr call         `As` _) = tymap CallExpr     <$> callAnalysis call
---exprAnalysis (BranchExpr branch     `As` _) = tymap BranchExpr   <$> branchAnalysis branch
+exprAnalysis (BranchExpr branch     `As` _) = tymap BranchExpr   <$> branchAnalysis branch
 exprAnalysis (CompoundExpr compound `As` _) = tymap CompoundExpr <$> compoundAnalysis compound
-exprAnalysis t = pure t
 
 compoundAnalysis :: MonadAnalysis m => Typed Compound -> m (Typed Compound)
 compoundAnalysis (OpCompound op           `As` _) = tymap OpCompound      <$> opAnalysis op
@@ -105,7 +104,11 @@ callAnalysis (Call callable expr `As` _) = do
         _                    -> throwError $ ErrorContext "compound is not callable" [ppShow c]
 
 branchAnalysis :: MonadAnalysis m => Typed Branch -> m (Typed Branch)
-branchAnalysis = undefined
+branchAnalysis (Branch cond trueBranch falseBranch `As` _) = do
+    c <- compoundAnalysis cond
+    t <- exprAnalysis trueBranch
+    f <- exprAnalysis falseBranch
+    pure (Branch c t f `As` typedTy t)
 
 typeAnalysis :: MonadAnalysis m => Type -> m Type
 typeAnalysis (PrimaryType (_ `As` BuiltinType (SizedIntBuiltin n))) = pure (IntType n)
