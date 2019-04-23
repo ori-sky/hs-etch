@@ -41,7 +41,7 @@ atomAnalysis (Syntax.SigAtom sig@(Syntax.Sig primary atom)) = do
         TypePrimary (expectedTy `As` _) `As` _ -> if actualTy == expectedTy || actualTy == UnresolvedType
             then pure (pVal `As` expectedTy)
             else throwError $ ErrorContext "expected type does not match actual type" [ppShow expectedTy, ppShow actualTy, show sig]
-        t@(_ `As` UnresolvedType)              -> pure (pVal `As` UnresolvedPrimaryType t)
+        t@(_ `As` UnresolvedType)              -> pure (pVal `As` PrimaryType t)
         typed                                  -> throwError $ ErrorContext "not a type" [ppShow typed]
 atomAnalysis (Syntax.PrimaryAtom primary) = primaryAnalysis primary
 
@@ -104,7 +104,7 @@ paramAnalysis :: MonadAnalysis m => Syntax.Param -> m (Typed Param)
 paramAnalysis (Syntax.SigParam (Syntax.Sig name atom)) = do
     a <- atomAnalysis atom
     scope %= HM.insert name (Term (typedTy a) HM.empty) -- XXX: need scopes
-    pure (name `As` UnresolvedPrimaryType a)
+    pure (name `As` PrimaryType a)
 -- paramAnalysis (Syntax.SigParam (Syntax.AtomSig name ty)) = atomAnalysis >>= \case
 --     TypePrimary t `As` _ ->
 

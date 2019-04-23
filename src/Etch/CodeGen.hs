@@ -53,14 +53,15 @@ topLevelDefBuilder (Def name (FunctionExpr function `As` _) `As` _) = do
     modify (contextInsert name fn)
     pure (Just fn)
   where lName = (L.AST.Name . ShortBS.toShort . encodeUtf8) name
-topLevelDefBuilder (Def name (CompoundExpr (PrimaryCompound (IntegerPrimary x `As` _) `As` _) `As` _) `As` _) = do
+topLevelDefBuilder (Def name (CompoundExpr (PrimaryCompound (IntegerPrimary x `As` _) `As` _) `As` _) `As` IntType 32) = do
     modify (contextInsert name constantOp)
     Just <$> IR.global lName L.AST.i32 constant
   where lName      = (L.AST.Name . ShortBS.toShort . encodeUtf8) name
         constant   = L.AST.Const.Int 32 x
         constantOp = L.AST.ConstantOperand constant
-topLevelDefBuilder (_ `As` NewType _ _) = pure Nothing
-topLevelDefBuilder (_ `As` UnresolvedPrimaryType primary) = error ("unresolved primary type:\n\n" ++ ppShow primary)
+topLevelDefBuilder (_ `As` NewType _ _)   = pure Nothing
+topLevelDefBuilder (_ `As` BuiltinType _) = pure Nothing
+topLevelDefBuilder (_ `As` PrimaryType primary) = error ("unresolved primary type:\n\n" ++ ppShow primary)
 topLevelDefBuilder def = error ("unhandled top-level def:\n\n" ++ ppShow def)
 
 topLevelFunctionBuilder :: L.AST.Name -> Typed Function -> ModuleBuilder L.AST.Operand
@@ -147,8 +148,8 @@ blockBuilder (Block statements `As` _) = do
     --lift $ topLevelFunctionBuilder (L.AST.UnName nextID) block
 
 fromType :: Type -> L.AST.Type
-fromType (TupleType [])                  = L.AST.void
-fromType (IntType 32)                    = L.AST.i32
-fromType UnresolvedType                  = error "unresolved type"
-fromType (UnresolvedPrimaryType primary) = error ("unresolved primary type:\n\n" ++ ppShow primary)
-fromType ty                              = error ("unhandled type: " ++ show ty)
+fromType (TupleType [])        = L.AST.void
+fromType (IntType 32)          = L.AST.i32
+fromType UnresolvedType        = error "unresolved type"
+fromType (PrimaryType primary) = error ("unresolved primary type:\n\n" ++ ppShow primary)
+fromType ty                    = error ("unhandled type: " ++ show ty)

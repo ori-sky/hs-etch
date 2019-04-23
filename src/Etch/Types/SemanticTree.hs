@@ -3,12 +3,13 @@ module Etch.Types.SemanticTree where
 import Data.Text (Text)
 
 data Type = TupleType [Type]
-          | NewType Integer [Type]
           | FunctionType [Type] Type
           | IntType Integer
           | StringType
+          | NewType Integer [Type]
+          | PrimaryType (Typed Primary)
+          | BuiltinType Builtin
           | UnresolvedType
-          | UnresolvedPrimaryType (Typed Primary)
             deriving (Eq, Show)
 
 data Typed a = a `As` Type
@@ -44,6 +45,11 @@ data Primary = BlockPrimary (Typed Block)
              | IdentPrimary Text
              | IntegerPrimary Integer
              | StringPrimary Text
+             | BuiltinPrimary Builtin
+               deriving (Eq, Show)
+
+data Builtin = SizedIntBuiltin Integer
+             | StringBuiltin
                deriving (Eq, Show)
 
 data Def = Def Text (Typed Expr)

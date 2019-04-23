@@ -39,27 +39,29 @@ primaryAnalysis (BlockPrimary block     `As` _) = tymap BlockPrimary <$> blockAn
 primaryAnalysis (NewPrimary newID exprs `As` NewType typeID _) = do
     typeds <- traverse exprAnalysis exprs
     pure $ NewPrimary newID typeds `As` NewType typeID (typedTy <$> typeds)
-primaryAnalysis (NewPrimary newID exprs `As` UnresolvedPrimaryType primary) = do
+primaryAnalysis (NewPrimary newID exprs `As` PrimaryType primary) = do
     typeds <- traverse exprAnalysis exprs
     p <- primaryAnalysis primary
     pure $ NewPrimary newID typeds `As` (typedTy p)
 --primaryAnalysis (TypePrimary ty     `As` _) = tymap TypePrimary  <$> typeAnalysis ty
---primaryAnalysis (TuplePrimary exprs `As` _) = do
---    typeds <- traverse exprAnalysis exprs
---    pure $ TuplePrimary typeds `As` TupleType (typedTy <$> typeds)
+primaryAnalysis (TuplePrimary exprs `As` _) = do
+    typeds <- traverse exprAnalysis exprs
+    pure $ TuplePrimary typeds `As` TupleType (typedTy <$> typeds)
 --primaryAnalysis (NewPrimary _       `As` _)              = error "new analysis not implemented yet"
 --    typeds <- traverse exprAnalysis exprs
 --    newID <- use nextID
 --    nextID %= succ
 --    pure $ NewPrimary typeds `As` NewType newID (typedTy <$> typeds)
 --primaryAnalysis (IdentPrimary ident `As` UnresolvedType) = error ("type resolution not implemented yet (" ++ unpack ident ++ ")")
-primaryAnalysis (IdentPrimary "int" `As` UnresolvedType) = pure (IdentPrimary "int" `As` IntType 32)
-primaryAnalysis (IdentPrimary name  `As` UnresolvedType) = do
+primaryAnalysis (IdentPrimary "int" `As` UnresolvedType) = pure (BuiltinPrimary builtin `As` BuiltinType builtin)
+  where builtin = SizedIntBuiltin 32
+primaryAnalysis (IdentPrimary name  `As` _) = do
     hm <- use scope
     let resolvedTy = case HM.lookup name hm of
             Nothing          -> UnresolvedType
             Just (Term ty _) -> ty
     pure (IdentPrimary name `As` resolvedTy)
+primaryAnalysis (IntegerPrimary x `As` ty) = (IntegerPrimary x `As`) <$> typeAnalysis ty
 primaryAnalysis t = pure t
 
 defAnalysis :: MonadAnalysis m => Typed Def -> m (Typed Def)
@@ -72,7 +74,7 @@ functionAnalysis :: MonadAnalysis m => Typed Function -> m (Typed Function)
 functionAnalysis (Function (ParamList params) expr `As` _) = do
     args <- traverse paramAnalysis params
     e <- exprAnalysis expr
-    let paramTys = typedTy <$> args
+    paramTys <- traverse typeAnalysis (typedTy <$> args)
     pure $ Function (ParamList args) e `As` FunctionType paramTys (typedTy e)
 
 blockAnalysis :: MonadAnalysis m => Typed Block -> m (Typed Block)
@@ -105,16 +107,19 @@ callAnalysis (Call callable expr `As` _) = do
 branchAnalysis :: MonadAnalysis m => Typed Branch -> m (Typed Branch)
 branchAnalysis = undefined
 
-typeAnalysis :: MonadAnalysis m => Typed Type -> m (Typed Type)
-typeAnalysis = undefined
+typeAnalysis :: MonadAnalysis m => Type -> m Type
+typeAnalysis (PrimaryType (_ `As` BuiltinType (SizedIntBuiltin n))) = pure (IntType n)
+typeAnalysis (PrimaryType primary) = PrimaryType <$> primaryAnalysis primary
+typeAnalysis ty = pure ty
 
 paramAnalysis :: MonadAnalysis m => Typed Param -> m (Typed Param)
 paramAnalysis (name `As` UnresolvedType) = do
-    scope %= HM.insert name (Term (IntType 32) HM.empty) -- XXX: need scopes
-    pure (name `As` IntType 32)
+    scope %= HM.insert name (Term intType HM.empty) -- XXX: need scopes
+    pure (name `As` intType)
+  where intType = IntType 32
 --paramAnalysis (name `As` UnresolvedType) = error ("parameter type inference not implemented yet (" ++ unpack name ++ ")")
-paramAnalysis (name `As` UnresolvedPrimaryType primary) = do
-    p <- primaryAnalysis primary
-    scope %= HM.insert name (Term (typedTy p) HM.empty) -- XXX: need scopes
-    pure (name `As` typedTy p)
+paramAnalysis (name `As` ty@(PrimaryType _)) = do
+    t <- typeAnalysis ty
+    scope %= HM.insert name (Term t HM.empty) -- XXX: need scopes
+    pure (name `As` t)
 paramAnalysis t = pure t
