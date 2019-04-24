@@ -48,7 +48,8 @@ data Primary = BlockPrimary (Typed Block)
              | BuiltinPrimary Builtin
                deriving (Eq, Show)
 
-data Builtin = SizedIntBuiltin Integer
+data Builtin = IntNBuiltin
+             | SizedIntBuiltin Integer
              | StringBuiltin
                deriving (Eq, Show)
 

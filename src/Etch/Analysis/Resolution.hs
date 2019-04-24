@@ -25,6 +25,9 @@ statementAnalysis (ExprStatement expr `As` _) = tymap ExprStatement <$> exprAnal
 
 exprAnalysis :: MonadAnalysis m => Typed Expr -> m (Typed Expr)
 exprAnalysis (FunctionExpr function `As` _) = tymap FunctionExpr <$> functionAnalysis function
+exprAnalysis (CallExpr (Call (_ `As` BuiltinType IntNBuiltin) (CompoundExpr (PrimaryCompound (IntegerPrimary n `As` _) `As` _) `As` _) `As` _) `As` _) =
+    pure $ tymap CompoundExpr $ tymap PrimaryCompound (BuiltinPrimary builtin `As` BuiltinType builtin)
+  where builtin = SizedIntBuiltin n
 exprAnalysis (CallExpr call         `As` _) = tymap CallExpr     <$> callAnalysis call
 exprAnalysis (BranchExpr branch     `As` _) = tymap BranchExpr   <$> branchAnalysis branch
 exprAnalysis (CompoundExpr compound `As` _) = tymap CompoundExpr <$> compoundAnalysis compound
@@ -52,8 +55,8 @@ primaryAnalysis (TuplePrimary exprs `As` _) = do
 --    nextID %= succ
 --    pure $ NewPrimary typeds `As` NewType newID (typedTy <$> typeds)
 --primaryAnalysis (IdentPrimary ident `As` UnresolvedType) = error ("type resolution not implemented yet (" ++ unpack ident ++ ")")
-primaryAnalysis (IdentPrimary "int" `As` UnresolvedType) = pure (BuiltinPrimary builtin `As` BuiltinType builtin)
-  where builtin = SizedIntBuiltin 32
+primaryAnalysis (IdentPrimary "intn" `As` UnresolvedType) = pure (BuiltinPrimary builtin `As` BuiltinType builtin)
+  where builtin = IntNBuiltin
 primaryAnalysis (IdentPrimary name  `As` _) = do
     hm <- use scope
     let resolvedTy = case HM.lookup name hm of
@@ -99,9 +102,10 @@ callAnalysis (Call callable expr `As` _) = do
     c <- compoundAnalysis callable
     e <- exprAnalysis expr
     case typedTy c of
-        FunctionType _ retTy -> pure (Call c e `As` retTy)
-        UnresolvedType       -> pure (Call c e `As` UnresolvedType)
-        _                    -> throwError $ ErrorContext "compound is not callable" [ppShow c]
+        FunctionType _ retTy    -> pure (Call c e `As` retTy)
+        BuiltinType IntNBuiltin -> pure (Call c e `As` BuiltinType IntNBuiltin)
+        UnresolvedType          -> pure (Call c e `As` UnresolvedType)
+        _                       -> throwError $ ErrorContext "compound is not callable" [ppShow c]
 
 branchAnalysis :: MonadAnalysis m => Typed Branch -> m (Typed Branch)
 branchAnalysis (Branch cond trueBranch falseBranch `As` _) = do
