@@ -1,4 +1,4 @@
 int = intn <- 32
 cint = int
 
-main = (argc : cint) -> { argc }
+main = argc:cint -> argc

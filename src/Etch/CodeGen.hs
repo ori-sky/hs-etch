@@ -19,7 +19,7 @@ import qualified LLVM.AST                   as L.AST hiding (type')
 import qualified LLVM.AST.Constant          as L.AST.Const
 --import qualified LLVM.AST.Global            as L.AST
 import qualified LLVM.AST.IntegerPredicate  as L.AST
-import qualified LLVM.AST.Type              as L.AST (void, i16, i32)
+import qualified LLVM.AST.Type              as L.AST (Type(IntegerType), void, i32)
 import qualified LLVM.AST.Typed             as L.AST (typeOf)
 import qualified LLVM.IRBuilder.Constant    as IR
 import qualified LLVM.IRBuilder.Instruction as IR
@@ -149,8 +149,7 @@ blockBuilder (Block statements `As` _) = do
 
 fromType :: Type -> L.AST.Type
 fromType (TupleType [])        = L.AST.void
-fromType (IntType 16)          = L.AST.i16
-fromType (IntType 32)          = L.AST.i32
+fromType (IntType n)           = L.AST.IntegerType (fromInteger n)
 fromType UnresolvedType        = error "unresolved type"
 fromType (PrimaryType primary) = error ("unresolved primary type:\n\n" ++ ppShow primary)
 fromType ty                    = error ("unhandled type: " ++ show ty)
