@@ -4,6 +4,7 @@ import Data.Text (Text)
 
 data Type = TupleType [Type]
           | FunctionType [Type] Type
+          | PtrType Type
           | IntType Integer
           | StringType
           | NewType Integer [Type]
@@ -49,7 +50,9 @@ data Primary = BlockPrimary (Typed Block)
                deriving (Eq, Show)
 
 data Builtin = IntNBuiltin
-             | SizedIntBuiltin Integer
+             | PtrBuiltin
+             | IntTypeBuiltin Integer
+             | PtrTypeBuiltin Type
              | StringBuiltin
                deriving (Eq, Show)
 

@@ -19,9 +19,9 @@ import qualified LLVM.AST                   as L.AST hiding (type')
 import qualified LLVM.AST.Constant          as L.AST.Const
 --import qualified LLVM.AST.Global            as L.AST
 import qualified LLVM.AST.IntegerPredicate  as L.AST
-import qualified LLVM.AST.Type              as L.AST (Type(IntegerType), void, i32)
+import qualified LLVM.AST.Type              as L.AST (Type(IntegerType), void, ptr, i32)
 import qualified LLVM.AST.Typed             as L.AST (typeOf)
-import qualified LLVM.IRBuilder.Constant    as IR
+--import qualified LLVM.IRBuilder.Constant    as IR
 import qualified LLVM.IRBuilder.Instruction as IR
 import qualified LLVM.IRBuilder.Module      as IR
 import qualified LLVM.IRBuilder.Monad       as IR
@@ -58,6 +58,20 @@ topLevelDefBuilder (Def name (CompoundExpr (PrimaryCompound (IntegerPrimary x `A
     Just <$> IR.global lName L.AST.i32 constant
   where lName      = (L.AST.Name . ShortBS.toShort . encodeUtf8) name
         constant   = L.AST.Const.Int 32 x
+        constantOp = L.AST.ConstantOperand constant
+topLevelDefBuilder (Def name (CompoundExpr (PrimaryCompound (IntegerPrimary 0 `As` _) `As` _) `As` _) `As` PtrType ty) = do
+    modify (contextInsert name constantOp)
+    Just <$> IR.global lName lType constant
+  where lName      = (L.AST.Name . ShortBS.toShort . encodeUtf8) name
+        lType      = L.AST.ptr (fromType ty)
+        constant   = L.AST.Const.Null lType
+        constantOp = L.AST.ConstantOperand constant
+topLevelDefBuilder (Def name (CompoundExpr (PrimaryCompound (IntegerPrimary x `As` _) `As` _) `As` _) `As` PtrType ty) = do
+    modify (contextInsert name constantOp)
+    Just <$> IR.global lName lType constant
+  where lName      = (L.AST.Name . ShortBS.toShort . encodeUtf8) name
+        lType      = L.AST.ptr (fromType ty)
+        constant   = L.AST.Const.IntToPtr (L.AST.Const.Int 32 x) lType
         constantOp = L.AST.ConstantOperand constant
 topLevelDefBuilder (_ `As` NewType _ _)   = pure Nothing
 topLevelDefBuilder (_ `As` BuiltinType _) = pure Nothing
@@ -101,7 +115,12 @@ primaryBuilder (IdentPrimary name   `As` _) = get >>= f
   where f context = case contextLookup name context of
             Just value -> pure value
             Nothing    -> error ("undefined name: " ++ T.unpack name)
-primaryBuilder (IntegerPrimary x    `As` _) = IR.int32 x
+primaryBuilder (IntegerPrimary x    `As` IntType n)  = pure constantOp
+  where constant   = L.AST.Const.Int (fromInteger n) x
+        constantOp = L.AST.ConstantOperand constant
+primaryBuilder (IntegerPrimary x    `As` PtrType ty) = pure constantOp
+  where constant   = L.AST.Const.IntToPtr (L.AST.Const.Int 32 x) (fromType ty)
+        constantOp = L.AST.ConstantOperand constant
 primaryBuilder primary = error ("unhandled primary:\n\n" ++ ppShow primary)
 
 defBuilder :: Typed Def -> Builder L.AST.Operand
@@ -149,6 +168,7 @@ blockBuilder (Block statements `As` _) = do
 
 fromType :: Type -> L.AST.Type
 fromType (TupleType [])        = L.AST.void
+fromType (PtrType ty)          = L.AST.ptr (fromType ty)
 fromType (IntType n)           = L.AST.IntegerType (fromInteger n)
 fromType UnresolvedType        = error "unresolved type"
 fromType (PrimaryType primary) = error ("unresolved primary type:\n\n" ++ ppShow primary)

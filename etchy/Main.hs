@@ -38,9 +38,11 @@ compile name contents = do
     (res2, state2) <- runStateT (Resolution.analysis sem) state
     (res3, state3) <- runStateT (Resolution.analysis res2) state2
     (res4, state4) <- runStateT (Resolution.analysis res3) state3
-    liftIO (pPrint state4)
-    liftIO (pPrint res4)
-    let defs = [ def | DefStatement def `As` _ <- res4 ]
+    (res5, state5) <- runStateT (Resolution.analysis res4) state4
+    (res6, state6) <- runStateT (Resolution.analysis res5) state5
+    liftIO (pPrint state6)
+    liftIO (pPrint res6)
+    let defs = [ def | DefStatement def `As` _ <- res6 ]
     liftIO $ codeGen (defaultModule name defs)
 
 getHandle :: [String] -> IO Handle
