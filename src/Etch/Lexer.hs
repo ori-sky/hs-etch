@@ -19,7 +19,7 @@ identifierRestChars = [ '0', '1', '2', '3', '4', '5', '6', '7', '8', '9'
 
 -- minus character must be at start of list
 operatorChars :: [Char]
-operatorChars = [ '-', '+', '*', '/', '<', '>', '=' ]
+operatorChars = [ '-', '+', '*', '/', '<', '>', '=', '|' ]
 
 whitespaceParser :: Parser ()
 whitespaceParser = skipSpace

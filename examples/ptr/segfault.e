@@ -2,4 +2,4 @@ ptr_char = ptr <- intn <- 8
 
 null = 0 : ptr_char
 
-f = () -> { null <* 0 }
+f = () -> { null |* 0 }

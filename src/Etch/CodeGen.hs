@@ -157,9 +157,13 @@ opBuilder (Op op lhs rhs `As` _) = do
         "==" -> IR.icmp L.AST.EQ l r
         "<"  -> IR.icmp L.AST.SLT l r
         ">"  -> IR.icmp L.AST.SGT l r
-        "<*" -> do
+        "|+" -> IR.gep l [r]
+        "|*" -> do
             g <- IR.gep l [r]
             IR.load g 0
+        "|=" -> do
+            IR.store l 0 r
+            pure l
         o    -> error ("unhandled operator: " ++ show o)
 
 blockBuilder :: Typed Block -> Builder L.AST.Operand
@@ -171,6 +175,7 @@ blockBuilder (Block statements `As` _) = do
 
 fromType :: Type -> L.AST.Type
 fromType (TupleType [])        = L.AST.void
+fromType (TupleType [ty])      = fromType ty
 fromType (PtrType ty)          = L.AST.ptr (fromType ty)
 fromType (IntType n)           = L.AST.IntegerType (fromInteger n)
 fromType UnresolvedType        = error "unresolved type"
