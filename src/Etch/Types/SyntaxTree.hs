@@ -3,6 +3,7 @@ module Etch.Types.SyntaxTree where
 import Data.Text (Text)
 
 data Statement = DefStatement Def
+               | ForeignStatement Foreign
                | ExprStatement Expr
                  deriving Show
 
@@ -33,6 +34,9 @@ data Sig a = Sig a Atom
 
 data Def = Def Text Expr
            deriving Show
+
+data Foreign = Foreign (Sig Text)
+               deriving Show
 
 data Function = Function ParamList Expr
                 deriving Show

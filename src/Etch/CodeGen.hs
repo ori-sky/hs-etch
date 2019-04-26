@@ -45,7 +45,8 @@ codeGen m = L.withContext $ \ctx ->
 moduleGen :: Module -> L.AST.Module
 moduleGen m = evalState (IR.buildModuleT name moduleBuilder) defaultContext
   where name          = (ShortBS.toShort . encodeUtf8 . T.pack . moduleName) m
-        moduleBuilder = traverse_ topLevelDefBuilder (moduleDefs m)
+        moduleBuilder = do
+            traverse_ topLevelDefBuilder (moduleDefs m)
 
 topLevelDefBuilder :: Typed Def -> ModuleBuilder (Maybe L.AST.Operand)
 topLevelDefBuilder (Def name (FunctionExpr function `As` _) `As` _) = do
@@ -94,6 +95,7 @@ topLevelFunctionBuilder _ function  = error ("unhandled function:\n\n" ++ ppShow
 
 statementBuilder :: Typed Statement -> Builder L.AST.Operand
 statementBuilder (DefStatement def   `As` _) = defBuilder def
+statementBuilder (ForeignStatement f `As` _) = foreignBuilder f
 statementBuilder (ExprStatement expr `As` _) = exprBuilder expr
 
 exprBuilder :: Typed Expr -> Builder L.AST.Operand
@@ -125,9 +127,16 @@ primaryBuilder primary = error ("unhandled primary:\n\n" ++ ppShow primary)
 
 defBuilder :: Typed Def -> Builder L.AST.Operand
 defBuilder (Def name expr `As` _) = do
-    e <- exprBuilder expr
-    modify (contextInsert name e)
-    pure e
+    op <- exprBuilder expr
+    modify (contextInsert name op)
+    pure op
+
+foreignBuilder :: Typed Foreign -> Builder L.AST.Operand
+foreignBuilder (Foreign name `As` _) = do
+    op <- lift $ IR.extern lName [] (fromType (IntType 32))
+    modify (contextInsert name op)
+    pure op
+  where lName = (L.AST.Name . ShortBS.toShort . encodeUtf8) name
 
 callBuilder :: Typed Call -> Builder L.AST.Operand
 callBuilder (Call callable (CompoundExpr (PrimaryCompound (TuplePrimary args `As` _) `As` _) `As` _) `As` _) = do
@@ -174,10 +183,11 @@ blockBuilder (Block statements `As` _) = do
     --lift $ topLevelFunctionBuilder (L.AST.UnName nextID) block
 
 fromType :: Type -> L.AST.Type
-fromType (TupleType [])        = L.AST.void
-fromType (TupleType [ty])      = fromType ty
-fromType (PtrType ty)          = L.AST.ptr (fromType ty)
-fromType (IntType n)           = L.AST.IntegerType (fromInteger n)
-fromType UnresolvedType        = error "unresolved type"
-fromType (PrimaryType primary) = error ("unresolved primary type:\n\n" ++ ppShow primary)
-fromType ty                    = error ("unhandled type: " ++ show ty)
+fromType (TupleType [])           = L.AST.void
+fromType (TupleType [ty])         = fromType ty
+fromType (PtrType ty)             = L.AST.ptr (fromType ty)
+fromType (IntType n)              = L.AST.IntegerType (fromInteger n)
+fromType (FunctionType tys retTy) = L.AST.FunctionType (fromType retTy) (fromType <$> tys) False
+fromType UnresolvedType           = error "unresolved type"
+fromType (PrimaryType primary)    = error ("unresolved primary type:\n\n" ++ ppShow primary)
+fromType ty                       = error ("unhandled type: " ++ show ty)

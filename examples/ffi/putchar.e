@@ -1,4 +1,4 @@
-@putchar : int -> ()
+@putchar : function <- int <- ()
 
 main = () -> {
 	@putchar <- 'h'

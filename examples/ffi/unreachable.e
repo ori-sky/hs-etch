@@ -1,0 +1,4 @@
+f = () -> {
+	@unreachable : (() -> ())
+	unreachable <- ()
+}

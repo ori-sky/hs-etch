@@ -20,8 +20,9 @@ analysis :: MonadAnalysis m => [Typed Statement] -> m [Typed Statement]
 analysis statements = traverse statementAnalysis statements
 
 statementAnalysis :: MonadAnalysis m => Typed Statement -> m (Typed Statement)
-statementAnalysis (DefStatement def   `As` _) = tymap DefStatement  <$> defAnalysis def
-statementAnalysis (ExprStatement expr `As` _) = tymap ExprStatement <$> exprAnalysis expr
+statementAnalysis (DefStatement def   `As` _) = tymap DefStatement     <$> defAnalysis def
+statementAnalysis (ForeignStatement f `As` _) = tymap ForeignStatement <$> foreignAnalysis f
+statementAnalysis (ExprStatement expr `As` _) = tymap ExprStatement    <$> exprAnalysis expr
 
 exprAnalysis :: MonadAnalysis m => Typed Expr -> m (Typed Expr)
 exprAnalysis (FunctionExpr function `As` _) = tymap FunctionExpr <$> functionAnalysis function
@@ -78,6 +79,9 @@ defAnalysis (Def name expr `As` _) = do
     scope %= HM.insert name (Term (typedTy e) HM.empty)
     pure $ tymap (Def name) e
 
+foreignAnalysis :: MonadAnalysis m => Typed Foreign -> m (Typed Foreign)
+foreignAnalysis typed = pure typed
+
 functionAnalysis :: MonadAnalysis m => Typed Function -> m (Typed Function)
 functionAnalysis (Function (ParamList params) expr `As` _) = do
     args <- traverse paramAnalysis params
@@ -107,12 +111,15 @@ callAnalysis :: MonadAnalysis m => Typed Call -> m (Typed Call)
 callAnalysis (Call callable expr `As` _) = do
     c <- compoundAnalysis callable
     e <- exprAnalysis expr
-    case typedTy c of
-        FunctionType _ retTy    -> pure (Call c e `As` retTy)
-        BuiltinType IntNBuiltin -> pure (Call c e `As` BuiltinType IntNBuiltin)
-        BuiltinType PtrBuiltin  -> pure (Call c e `As` BuiltinType PtrBuiltin)
-        UnresolvedType          -> pure (Call c e `As` UnresolvedType)
-        _                       -> throwError $ ErrorContext "compound is not callable" [ppShow c]
+    (Call c e `As`) <$> callTypeAnalysis (typedTy c)
+
+callTypeAnalysis :: MonadAnalysis m => Type -> m Type
+callTypeAnalysis (TupleType [ty])          = callTypeAnalysis ty
+callTypeAnalysis (FunctionType _ retTy)    = typeAnalysis retTy
+callTypeAnalysis (BuiltinType IntNBuiltin) = pure (BuiltinType IntNBuiltin)
+callTypeAnalysis (BuiltinType PtrBuiltin)  = pure (BuiltinType PtrBuiltin)
+callTypeAnalysis UnresolvedType            = pure (UnresolvedType)
+callTypeAnalysis ty                        = throwError $ ErrorContext "type is not callable" [ppShow ty]
 
 branchAnalysis :: MonadAnalysis m => Typed Branch -> m (Typed Branch)
 branchAnalysis (Branch cond trueBranch falseBranch `As` _) = do

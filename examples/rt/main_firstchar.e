@@ -5,5 +5,5 @@ cptr = ptr
 argv_t = cptr <- cptr <- cchar
 
 main = (argc : cint, argv : argv_t) -> {
-	argv |* 0 |* 0
+	(argv |* 0) |* 0
 }

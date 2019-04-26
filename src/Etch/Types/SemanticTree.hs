@@ -26,6 +26,7 @@ tymap :: (Typed a -> b) -> Typed a -> Typed b
 tymap f typed = f typed `As` typedTy typed
 
 data Statement = DefStatement (Typed Def)
+               | ForeignStatement (Typed Foreign)
                | ExprStatement (Typed Expr)
                  deriving (Eq, Show)
 
@@ -58,6 +59,9 @@ data Builtin = IntNBuiltin
 
 data Def = Def Text (Typed Expr)
            deriving (Eq, Show)
+
+data Foreign = Foreign Text
+               deriving (Eq, Show)
 
 data Function = Function ParamList (Typed Expr)
                 deriving (Eq, Show)

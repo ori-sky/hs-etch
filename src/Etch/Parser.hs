@@ -20,8 +20,9 @@ parse text = f (Atto.parse statementParser text)
         f (Done remainder result)  = (result :) <$> parse remainder
 
 statementParser :: Parser Statement
-statementParser = DefStatement  <$> defParser
-              <|> ExprStatement <$> exprParser
+statementParser = DefStatement     <$> defParser
+              <|> ForeignStatement <$> foreignParser
+              <|> ExprStatement    <$> exprParser
 
 exprParser :: Parser Expr
 exprParser = FunctionExpr <$> functionParser
@@ -50,6 +51,9 @@ sigParser p = Sig <$> p <* L.charParser ':' <*> atomParser
 
 defParser :: Parser Def
 defParser = Def <$> L.identifierParser <* L.charParser '=' <*> exprParser
+
+foreignParser :: Parser Foreign
+foreignParser = Foreign <$ L.charParser '@' <*> sigParser L.identifierParser
 
 functionParser :: Parser Function
 functionParser = Function <$> paramListParser <* L.charsParser "->" <*> exprParser
