@@ -50,8 +50,11 @@ data Primary = BlockPrimary (Typed Block)
              | BuiltinPrimary Builtin
                deriving (Eq, Show)
 
-data Builtin = IntNBuiltin
+data Builtin = FunctionBuiltin
+             | Function2Builtin Type
+             | IntNBuiltin
              | PtrBuiltin
+             | FunctionTypeBuiltin Type Type
              | IntTypeBuiltin Integer
              | PtrTypeBuiltin Type
              | StringBuiltin

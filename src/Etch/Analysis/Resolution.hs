@@ -26,6 +26,12 @@ statementAnalysis (ExprStatement expr `As` _) = tymap ExprStatement    <$> exprA
 
 exprAnalysis :: MonadAnalysis m => Typed Expr -> m (Typed Expr)
 exprAnalysis (FunctionExpr function `As` _) = tymap FunctionExpr <$> functionAnalysis function
+exprAnalysis (CallExpr (Call (_ `As` BuiltinType FunctionBuiltin) (CompoundExpr (PrimaryCompound primary `As` _) `As` _) `As` _) `As` _) = do
+    builtin <- Function2Builtin <$> typeAnalysis (PrimaryType primary)
+    pure $ tymap CompoundExpr $ tymap PrimaryCompound (BuiltinPrimary builtin `As` BuiltinType builtin)
+exprAnalysis (CallExpr (Call (_ `As` BuiltinType (Function2Builtin ty)) (CompoundExpr (PrimaryCompound primary `As` _) `As` _) `As` _) `As` _) = do
+    builtin <- FunctionTypeBuiltin <$> typeAnalysis ty <*> typeAnalysis (PrimaryType primary)
+    pure $ tymap CompoundExpr $ tymap PrimaryCompound (BuiltinPrimary builtin `As` BuiltinType builtin)
 exprAnalysis (CallExpr (Call (_ `As` BuiltinType IntNBuiltin) (CompoundExpr (PrimaryCompound (IntegerPrimary n `As` _) `As` _) `As` _) `As` _) `As` _) =
     pure $ tymap CompoundExpr $ tymap PrimaryCompound (BuiltinPrimary builtin `As` BuiltinType builtin)
   where builtin = IntTypeBuiltin n
@@ -60,16 +66,18 @@ primaryAnalysis (TuplePrimary exprs `As` _) = do
 --    nextID %= succ
 --    pure $ NewPrimary typeds `As` NewType newID (typedTy <$> typeds)
 --primaryAnalysis (IdentPrimary ident `As` UnresolvedType) = error ("type resolution not implemented yet (" ++ unpack ident ++ ")")
-primaryAnalysis (IdentPrimary "intn" `As` UnresolvedType) = pure (BuiltinPrimary builtin `As` BuiltinType builtin)
+primaryAnalysis (IdentPrimary "function" `As` UnresolvedType) = pure (BuiltinPrimary builtin `As` BuiltinType builtin)
+  where builtin = FunctionBuiltin
+primaryAnalysis (IdentPrimary "intn"     `As` UnresolvedType) = pure (BuiltinPrimary builtin `As` BuiltinType builtin)
   where builtin = IntNBuiltin
-primaryAnalysis (IdentPrimary "ptr"  `As` UnresolvedType) = pure (BuiltinPrimary builtin `As` BuiltinType builtin)
+primaryAnalysis (IdentPrimary "ptr"      `As` UnresolvedType) = pure (BuiltinPrimary builtin `As` BuiltinType builtin)
   where builtin = PtrBuiltin
 primaryAnalysis (IdentPrimary name  `As` _) = do
     hm <- use scope
     let resolvedTy = case HM.lookup name hm of
             Nothing          -> UnresolvedType
             Just (Term ty _) -> ty
-    pure (IdentPrimary name `As` resolvedTy)
+    (IdentPrimary name `As`) <$> typeAnalysis resolvedTy
 primaryAnalysis (IntegerPrimary x `As` ty) = (IntegerPrimary x `As`) <$> typeAnalysis ty
 primaryAnalysis t = pure t
 
@@ -80,7 +88,10 @@ defAnalysis (Def name expr `As` _) = do
     pure $ tymap (Def name) e
 
 foreignAnalysis :: MonadAnalysis m => Typed Foreign -> m (Typed Foreign)
-foreignAnalysis typed = pure typed
+foreignAnalysis (Foreign name `As` ty) = do
+    t <- typeAnalysis ty
+    scope %= HM.insert name (Term t HM.empty) -- XXX: need scopes
+    pure (Foreign name `As` t)
 
 functionAnalysis :: MonadAnalysis m => Typed Function -> m (Typed Function)
 functionAnalysis (Function (ParamList params) expr `As` _) = do
@@ -111,15 +122,17 @@ callAnalysis :: MonadAnalysis m => Typed Call -> m (Typed Call)
 callAnalysis (Call callable expr `As` _) = do
     c <- compoundAnalysis callable
     e <- exprAnalysis expr
-    (Call c e `As`) <$> callTypeAnalysis (typedTy c)
+    (Call c e `As`) <$> callTypeAnalysis (typedTy c) e
 
-callTypeAnalysis :: MonadAnalysis m => Type -> m Type
-callTypeAnalysis (TupleType [ty])          = callTypeAnalysis ty
-callTypeAnalysis (FunctionType _ retTy)    = typeAnalysis retTy
-callTypeAnalysis (BuiltinType IntNBuiltin) = pure (BuiltinType IntNBuiltin)
-callTypeAnalysis (BuiltinType PtrBuiltin)  = pure (BuiltinType PtrBuiltin)
-callTypeAnalysis UnresolvedType            = pure (UnresolvedType)
-callTypeAnalysis ty                        = throwError $ ErrorContext "type is not callable" [ppShow ty]
+callTypeAnalysis :: MonadAnalysis m => Type -> Typed Expr -> m Type
+callTypeAnalysis (TupleType [ty]) e                                                                         = callTypeAnalysis ty e
+callTypeAnalysis (FunctionType _ retTy) _                                                                   = typeAnalysis retTy
+callTypeAnalysis (BuiltinType FunctionBuiltin)       (CompoundExpr (PrimaryCompound primary `As` _) `As` _) = BuiltinType . Function2Builtin       <$> typeAnalysis (PrimaryType primary)
+callTypeAnalysis (BuiltinType (Function2Builtin ty)) (CompoundExpr (PrimaryCompound primary `As` _) `As` _) = BuiltinType . FunctionTypeBuiltin ty <$> typeAnalysis (PrimaryType primary)
+callTypeAnalysis (BuiltinType IntNBuiltin) _                                                                = pure (BuiltinType IntNBuiltin)
+callTypeAnalysis (BuiltinType PtrBuiltin) _                                                                 = pure (BuiltinType PtrBuiltin)
+callTypeAnalysis UnresolvedType _                                                                           = pure (UnresolvedType)
+callTypeAnalysis ty e                                                                                       = throwError $ ErrorContext "resolved type is not callable" [ppShow ty, ppShow e]
 
 branchAnalysis :: MonadAnalysis m => Typed Branch -> m (Typed Branch)
 branchAnalysis (Branch cond trueBranch falseBranch `As` _) = do
@@ -129,9 +142,13 @@ branchAnalysis (Branch cond trueBranch falseBranch `As` _) = do
     pure (Branch c t f `As` typedTy t)
 
 typeAnalysis :: MonadAnalysis m => Type -> m Type
-typeAnalysis (PrimaryType (_ `As` BuiltinType (IntTypeBuiltin n))) = pure (IntType n)
-typeAnalysis (PrimaryType (_ `As` BuiltinType (PtrTypeBuiltin ty))) = PtrType <$> typeAnalysis ty
-typeAnalysis (PrimaryType primary) = PrimaryType <$> primaryAnalysis primary
+typeAnalysis (FunctionType tys retTy) = FunctionType <$> traverse typeAnalysis tys <*> typeAnalysis retTy
+typeAnalysis (PrimaryType (_ `As` BuiltinType (FunctionTypeBuiltin ty retTy))) = do
+    t <- typeAnalysis ty
+    FunctionType [t] <$> typeAnalysis retTy
+typeAnalysis (PrimaryType (_ `As` BuiltinType (IntTypeBuiltin n)))             = pure (IntType n)
+typeAnalysis (PrimaryType (_ `As` BuiltinType (PtrTypeBuiltin ty)))            = PtrType <$> typeAnalysis ty
+typeAnalysis (PrimaryType primary)                                             = PrimaryType <$> primaryAnalysis primary
 typeAnalysis ty = pure ty
 
 paramAnalysis :: MonadAnalysis m => Typed Param -> m (Typed Param)

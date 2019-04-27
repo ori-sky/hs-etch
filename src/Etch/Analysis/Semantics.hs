@@ -86,12 +86,14 @@ callAnalysis (Syntax.Call callable expr) = do
     (Call c e `As`) <$> callTypeAnalysis (typedTy c)
 
 callTypeAnalysis :: MonadAnalysis m => Type -> m Type
-callTypeAnalysis (TupleType [ty])          = callTypeAnalysis ty
-callTypeAnalysis (FunctionType _ retTy)    = pure retTy
-callTypeAnalysis (BuiltinType IntNBuiltin) = pure (BuiltinType IntNBuiltin)
-callTypeAnalysis (BuiltinType PtrBuiltin)  = pure (BuiltinType PtrBuiltin)
-callTypeAnalysis UnresolvedType            = pure (UnresolvedType)
-callTypeAnalysis ty                        = throwError $ ErrorContext "type is not callable" [ppShow ty]
+callTypeAnalysis (TupleType [ty])                    = callTypeAnalysis ty
+callTypeAnalysis (FunctionType _ retTy)              = pure retTy
+callTypeAnalysis (BuiltinType FunctionBuiltin)       = pure (BuiltinType FunctionBuiltin)
+callTypeAnalysis (BuiltinType (Function2Builtin ty)) = pure (BuiltinType (Function2Builtin ty))
+callTypeAnalysis (BuiltinType IntNBuiltin)           = pure (BuiltinType IntNBuiltin)
+callTypeAnalysis (BuiltinType PtrBuiltin)            = pure (BuiltinType PtrBuiltin)
+callTypeAnalysis UnresolvedType                      = pure (UnresolvedType)
+callTypeAnalysis ty                                  = throwError $ ErrorContext "type is not callable" [ppShow ty]
 
 branchAnalysis :: MonadAnalysis m => Syntax.Branch -> m (Typed Branch)
 branchAnalysis (Syntax.Branch cond trueBranch falseBranch) = do

@@ -8,7 +8,7 @@ import Data.Text (Text)
 import Data.Text.IO (hGetContents)
 import Control.Monad.Except
 import Control.Monad.State (runStateT)
-import Text.Show.Pretty (pPrint)
+--import Text.Show.Pretty (pPrint)
 import System.Environment (getArgs)
 import System.IO (IOMode(ReadMode), Handle, stdin, openBinaryFile)
 import qualified Etch.Analysis.Semantics as Semantics
@@ -32,18 +32,17 @@ main = do
 compile :: (MonadError ErrorContext m, MonadIO m) => String -> Text -> m String
 compile name contents = do
     p <- parse contents
-    liftIO (pPrint p)
+    --liftIO (pPrint p)
     (sem, state) <- runStateT (Semantics.analysis p) defaultAnalysisState
-    liftIO (pPrint sem)
-    (res2, state2) <- runStateT (Resolution.analysis sem) state
-    (res3, state3) <- runStateT (Resolution.analysis res2) state2
-    (res4, state4) <- runStateT (Resolution.analysis res3) state3
-    (res5, state5) <- runStateT (Resolution.analysis res4) state4
-    (res6, state6) <- runStateT (Resolution.analysis res5) state5
-    liftIO (pPrint state6)
-    liftIO (pPrint res6)
-    let defs = [ def | DefStatement def `As` _ <- res6 ]
+    --liftIO (pPrint sem)
+    (res, _) <- runResolution =<< runResolution =<< runResolution =<< runResolution =<< runResolution =<< runResolution (sem, state)
+    --liftIO (pPrint state)
+    --liftIO (pPrint res)
+    let defs = [ def | DefStatement def `As` _ <- res ]
     liftIO $ codeGen (defaultModule name defs)
+
+runResolution :: (MonadError ErrorContext m) => ([Typed Statement], AnalysisState) -> m ([Typed Statement], AnalysisState)
+runResolution (statements, state) = runStateT (Resolution.analysis statements) state
 
 getHandle :: [String] -> IO Handle
 getHandle ("-"  : _) = pure stdin

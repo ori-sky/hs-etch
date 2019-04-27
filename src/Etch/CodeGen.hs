@@ -132,11 +132,12 @@ defBuilder (Def name expr `As` _) = do
     pure op
 
 foreignBuilder :: Typed Foreign -> Builder L.AST.Operand
-foreignBuilder (Foreign name `As` _) = do
-    op <- lift $ IR.extern lName [] (fromType (IntType 32))
+foreignBuilder (Foreign name `As` FunctionType tys retTy) = do
+    op <- lift $ IR.extern lName (fromType <$> tys) (fromType retTy)
     modify (contextInsert name op)
     pure op
   where lName = (L.AST.Name . ShortBS.toShort . encodeUtf8) name
+foreignBuilder f = error ("unhandled foreign:\n\n" ++ ppShow f)
 
 callBuilder :: Typed Call -> Builder L.AST.Operand
 callBuilder (Call callable (CompoundExpr (PrimaryCompound (TuplePrimary args `As` _) `As` _) `As` _) `As` _) = do
@@ -183,11 +184,12 @@ blockBuilder (Block statements `As` _) = do
     --lift $ topLevelFunctionBuilder (L.AST.UnName nextID) block
 
 fromType :: Type -> L.AST.Type
-fromType (TupleType [])           = L.AST.void
-fromType (TupleType [ty])         = fromType ty
-fromType (PtrType ty)             = L.AST.ptr (fromType ty)
-fromType (IntType n)              = L.AST.IntegerType (fromInteger n)
-fromType (FunctionType tys retTy) = L.AST.FunctionType (fromType retTy) (fromType <$> tys) False
-fromType UnresolvedType           = error "unresolved type"
-fromType (PrimaryType primary)    = error ("unresolved primary type:\n\n" ++ ppShow primary)
-fromType ty                       = error ("unhandled type: " ++ show ty)
+fromType (TupleType [])                          = L.AST.void
+fromType (TupleType [ty])                        = fromType ty
+fromType (PrimaryType (TuplePrimary [] `As` ty)) = fromType ty
+fromType (PtrType ty)                            = L.AST.ptr (fromType ty)
+fromType (IntType n)                             = L.AST.IntegerType (fromInteger n)
+fromType (FunctionType tys retTy)                = L.AST.FunctionType (fromType retTy) (fromType <$> tys) False
+fromType UnresolvedType                          = error "unresolved type"
+fromType (PrimaryType primary)                   = error ("unresolved primary type:\n\n" ++ ppShow primary)
+fromType ty                                      = error ("unhandled type: " ++ show ty)
