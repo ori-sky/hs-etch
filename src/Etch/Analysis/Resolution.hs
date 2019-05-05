@@ -4,6 +4,8 @@
 
 module Etch.Analysis.Resolution where
 
+{-
+
 import qualified Data.HashMap.Lazy as HM
 import Control.Monad.Except
 import Control.Monad.State
@@ -125,7 +127,6 @@ callAnalysis (Call callable expr `As` _) = do
     (Call c e `As`) <$> callTypeAnalysis (typedTy c) e
 
 callTypeAnalysis :: MonadAnalysis m => Type -> Typed Expr -> m Type
-callTypeAnalysis (TupleType [ty]) e                                                                         = callTypeAnalysis ty e
 callTypeAnalysis (FunctionType _ retTy) _                                                                   = typeAnalysis retTy
 callTypeAnalysis (BuiltinType FunctionBuiltin)       (CompoundExpr (PrimaryCompound primary `As` _) `As` _) = BuiltinType . Function2Builtin       <$> typeAnalysis (PrimaryType primary)
 callTypeAnalysis (BuiltinType (Function2Builtin ty)) (CompoundExpr (PrimaryCompound primary `As` _) `As` _) = BuiltinType . FunctionTypeBuiltin ty <$> typeAnalysis (PrimaryType primary)
@@ -143,12 +144,13 @@ branchAnalysis (Branch cond trueBranch falseBranch `As` _) = do
 
 typeAnalysis :: MonadAnalysis m => Type -> m Type
 typeAnalysis (FunctionType tys retTy) = FunctionType <$> traverse typeAnalysis tys <*> typeAnalysis retTy
-typeAnalysis (PrimaryType (_ `As` BuiltinType (FunctionTypeBuiltin ty retTy))) = do
+typeAnalysis (PrimaryType (_         `As` BuiltinType (FunctionTypeBuiltin ty retTy))) = do
     t <- typeAnalysis ty
     FunctionType [t] <$> typeAnalysis retTy
-typeAnalysis (PrimaryType (_ `As` BuiltinType (IntTypeBuiltin n)))             = pure (IntType n)
-typeAnalysis (PrimaryType (_ `As` BuiltinType (PtrTypeBuiltin ty)))            = PtrType <$> typeAnalysis ty
-typeAnalysis (PrimaryType primary)                                             = PrimaryType <$> primaryAnalysis primary
+typeAnalysis (PrimaryType (_         `As` TupleType []))                               = pure (TupleType [])
+typeAnalysis (PrimaryType (_         `As` BuiltinType (IntTypeBuiltin n)))             = pure (IntType n)
+typeAnalysis (PrimaryType (_         `As` BuiltinType (PtrTypeBuiltin ty)))            = PtrType     <$> typeAnalysis ty
+typeAnalysis (PrimaryType primary)                                                     = PrimaryType <$> primaryAnalysis primary
 typeAnalysis ty = pure ty
 
 paramAnalysis :: MonadAnalysis m => Typed Param -> m (Typed Param)
@@ -162,3 +164,4 @@ paramAnalysis (name `As` ty@(PrimaryType _)) = do
     scope %= HM.insert name (Term t HM.empty) -- XXX: need scopes
     pure (name `As` t)
 paramAnalysis t = pure t
+-}

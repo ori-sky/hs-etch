@@ -4,6 +4,8 @@
 
 module Etch.CodeGen where
 
+{-
+
 import qualified Data.ByteString.Char8 as BS
 import qualified Data.ByteString.Short as ShortBS
 import qualified Data.HashMap.Lazy as HM
@@ -186,10 +188,11 @@ blockBuilder (Block statements `As` _) = do
 fromType :: Type -> L.AST.Type
 fromType (TupleType [])                          = L.AST.void
 fromType (TupleType [ty])                        = fromType ty
-fromType (PrimaryType (TuplePrimary [] `As` ty)) = fromType ty
 fromType (PtrType ty)                            = L.AST.ptr (fromType ty)
 fromType (IntType n)                             = L.AST.IntegerType (fromInteger n)
 fromType (FunctionType tys retTy)                = L.AST.FunctionType (fromType retTy) (fromType <$> tys) False
 fromType UnresolvedType                          = error "unresolved type"
 fromType (PrimaryType primary)                   = error ("unresolved primary type:\n\n" ++ ppShow primary)
 fromType ty                                      = error ("unhandled type: " ++ show ty)
+
+-}

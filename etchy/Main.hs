@@ -8,17 +8,17 @@ import Data.Text (Text)
 import Data.Text.IO (hGetContents)
 import Control.Monad.Except
 import Control.Monad.State (runStateT)
---import Text.Show.Pretty (pPrint)
+import Text.Show.Pretty (pPrint)
 import System.Environment (getArgs)
 import System.IO (IOMode(ReadMode), Handle, stdin, openBinaryFile)
 import qualified Etch.Analysis.Semantics as Semantics
-import qualified Etch.Analysis.Resolution as Resolution
+--import qualified Etch.Analysis.Resolution as Resolution
 import Etch.Parser (parse)
-import Etch.CodeGen (codeGen)
+--import Etch.CodeGen (codeGen)
 import Etch.Types.Analysis
 import Etch.Types.ErrorContext
-import Etch.Types.Module (defaultModule)
-import Etch.Types.SemanticTree (Statement(DefStatement), Typed(As))
+--import Etch.Types.Module (defaultModule)
+--import Etch.Types.SemanticTree (Typed(As))
 
 main :: IO ()
 main = do
@@ -30,19 +30,21 @@ main = do
         Right code                       -> putStrLn code
 
 compile :: (MonadError ErrorContext m, MonadIO m) => String -> Text -> m String
-compile name contents = do
+compile _ contents = do
     p <- parse contents
-    --liftIO (pPrint p)
+    liftIO (pPrint p)
     (sem, state) <- runStateT (Semantics.analysis p) defaultAnalysisState
-    --liftIO (pPrint sem)
-    (res, _) <- runResolution =<< runResolution =<< runResolution =<< runResolution =<< runResolution =<< runResolution (sem, state)
-    --liftIO (pPrint state)
+    liftIO (pPrint state)
+    liftIO (pPrint sem)
+    pure ""
+    --(res, st) <- runResolution =<< runResolution =<< runResolution =<< runResolution =<< runResolution =<< runResolution (sem, state)
+    --liftIO (pPrint st)
     --liftIO (pPrint res)
-    let defs = [ def | DefStatement def `As` _ <- res ]
-    liftIO $ codeGen (defaultModule name defs)
+    --let defs = [ def | DefStatement def `As` _ <- sem ]
+    --liftIO $ codeGen (defaultModule name defs)
 
-runResolution :: (MonadError ErrorContext m) => ([Typed Statement], AnalysisState) -> m ([Typed Statement], AnalysisState)
-runResolution (statements, state) = runStateT (Resolution.analysis statements) state
+--runResolution :: (MonadError ErrorContext m) => ([Typed Statement], AnalysisState) -> m ([Typed Statement], AnalysisState)
+--runResolution (statements, state) = runStateT (Resolution.analysis statements) state
 
 getHandle :: [String] -> IO Handle
 getHandle ("-"  : _) = pure stdin

@@ -3,6 +3,6 @@ partial = function <- cint
 putchar_t = partial <- ()
 
 main = () -> {
-	@putchar : putchar_t
+	@putchar : (partial <- ())
 	0
 }

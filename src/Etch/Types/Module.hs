@@ -1,13 +1,13 @@
 module Etch.Types.Module where
 
-import Etch.Types.SemanticTree (Typed, Def)
+import Etch.Types.SemanticTree (Typed, SemBox)
 
 data Module = Module { moduleName       :: String
                      , moduleSourceFile :: String
-                     , moduleDefs       :: [Typed Def]
+                     , moduleDefs       :: [Typed SemBox]
                      }
 
-defaultModule :: String -> [Typed Def] -> Module
+defaultModule :: String -> [Typed SemBox] -> Module
 defaultModule srcFile defs = Module { moduleName       = srcFile
                                     , moduleSourceFile = srcFile
                                     , moduleDefs       = defs
