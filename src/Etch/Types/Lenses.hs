@@ -6,6 +6,6 @@
 module Etch.Types.Lenses where
 
 import Control.Lens.TH (makeFields)
-import Etch.Types.Analysis
+import Etch.Types.Semantic
 
 makeFields ''AnalysisState

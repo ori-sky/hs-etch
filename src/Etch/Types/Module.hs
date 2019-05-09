@@ -1,6 +1,6 @@
 module Etch.Types.Module where
 
-import Etch.Types.SemanticTree (Typed, SemBox)
+import Etch.Types.Semantic (Typed, SemBox)
 
 data Module = Module { moduleName       :: String
                      , moduleSourceFile :: String

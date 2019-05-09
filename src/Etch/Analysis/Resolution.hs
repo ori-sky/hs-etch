@@ -4,27 +4,95 @@
 
 module Etch.Analysis.Resolution where
 
-{-
-
 import qualified Data.HashMap.Lazy as HM
-import Control.Monad.Except
-import Control.Monad.State
+--import Control.Monad.Except
+--import Control.Monad.State
 import Control.Lens (use, (%=))
-import Text.Show.Pretty (ppShow)
-import Etch.Types.Analysis
-import Etch.Types.ErrorContext
+--import Text.Show.Pretty (ppShow)
+--import Etch.Types.ErrorContext
 import Etch.Types.Lenses
-import Etch.Types.SemanticTree
+import Etch.Types.Semantic hiding (visitParam, visitType)
 
-type MonadAnalysis m = (MonadError ErrorContext m, MonadState AnalysisState m)
+analysis :: MonadAnalysis m => Analysis m
+analysis = Analysis { blockAnalysis    = visitBlock
+                    , branchAnalysis   = undefined --visitBranch
+                    , callAnalysis     = visitCall
+                    , defAnalysis      = visitDef
+                    , foreignAnalysis  = visitForeign
+                    , functionAnalysis = visitFunction
+                    , newAnalysis      = undefined --visitNew
+                    , opAnalysis       = visitOp
+                    , paramAnalysis    = visitParam
+                    , primaryAnalysis  = visitPrimary
+                    , tupleAnalysis    = visitTuple
+                    , typeAnalysis     = visitType
+                    }
 
-analysis :: MonadAnalysis m => [Typed Statement] -> m [Typed Statement]
-analysis statements = traverse statementAnalysis statements
+visitBlock :: MonadAnalysis m => Typed Block -> m (Typed SemBox)
+visitBlock (block `As` ty) = pure (SemBox block `As` ty)
 
-statementAnalysis :: MonadAnalysis m => Typed Statement -> m (Typed Statement)
-statementAnalysis (DefStatement def   `As` _) = tymap DefStatement     <$> defAnalysis def
-statementAnalysis (ForeignStatement f `As` _) = tymap ForeignStatement <$> foreignAnalysis f
-statementAnalysis (ExprStatement expr `As` _) = tymap ExprStatement    <$> exprAnalysis expr
+visitCall :: MonadAnalysis m => Typed Call -> m (Typed SemBox)
+visitCall (call `As` ty) = pure (SemBox call `As` ty)
+
+visitDef :: MonadAnalysis m => Typed Def -> m (Typed SemBox)
+visitDef (Def name expr `As` ty) = do
+    scope %= HM.insert name (Term ty HM.empty)
+    pure $ SemBox (Def name expr) `As` ty
+
+visitForeign :: MonadAnalysis m => Typed Foreign -> m (Typed SemBox)
+visitForeign (Foreign name `As` ty) = do
+    scope %= HM.insert name (Term ty HM.empty) -- XXX: need scopes
+    pure $ SemBox (Foreign name) `As` ty
+
+visitFunction :: MonadAnalysis m => Typed Function -> m (Typed SemBox)
+visitFunction (fn `As` ty) = pure (SemBox fn `As` ty)
+
+visitOp :: MonadAnalysis m => Typed Op -> m (Typed SemBox)
+visitOp (op `As` ty) = pure (SemBox op `As` ty)
+
+visitParam :: MonadAnalysis m => Typed Param -> m (Typed Param)
+visitParam (name `As` UnresolvedType) = do
+    scope %= HM.insert name (Term intType HM.empty) -- XXX: need scopes
+    pure (name `As` intType)
+  where intType = IntType 32
+visitParam (name `As` ty) = do
+    scope %= HM.insert name (Term ty HM.empty) -- XXX: need scopes
+    pure (name `As` ty)
+
+visitPrimary :: MonadAnalysis m => Typed Primary -> m (Typed SemBox)
+--visitPrimary (NewPrimary newID exprs `As` NewType typeID _) = do
+--    typeds <- traverse exprAnalysis exprs
+--    pure $ NewPrimary newID typeds `As` NewType typeID (typedTy <$> typeds)
+--visitPrimary (NewPrimary newID exprs `As` PrimaryType primary) = do
+--    typeds <- traverse exprAnalysis exprs
+--    p <- visitPrimary primary
+--    pure $ NewPrimary newID typeds `As` (typedTy p)
+visitPrimary (IdentPrimary "function" `As` UnresolvedType) = pure $ SemBox (BuiltinPrimary builtin) `As` BuiltinType builtin
+  where builtin = FunctionBuiltin
+visitPrimary (IdentPrimary "intn"     `As` UnresolvedType) = pure $ SemBox (BuiltinPrimary builtin) `As` BuiltinType builtin
+  where builtin = IntNBuiltin
+visitPrimary (IdentPrimary "ptr"      `As` UnresolvedType) = pure $ SemBox (BuiltinPrimary builtin) `As` BuiltinType builtin
+  where builtin = PtrBuiltin
+visitPrimary (IdentPrimary name  `As` _) = do
+    hm <- use scope
+    let resolvedTy = case HM.lookup name hm of
+            Nothing          -> UnresolvedType
+            Just (Term ty _) -> ty
+    pure $ SemBox (IdentPrimary name) `As` resolvedTy
+visitPrimary (p `As` t) = pure (SemBox p `As` t)
+
+visitTuple :: MonadAnalysis m => Typed Tuple -> m (Typed SemBox)
+visitTuple (tuple `As` ty) = pure (SemBox tuple `As` ty)
+
+visitType :: MonadAnalysis m => Type -> m Type
+visitType (SemType (_         `As` BuiltinType (FunctionTypeBuiltin ty retTy))) = pure (FunctionType [ty] retTy)
+visitType (SemType (_         `As` TupleType []))                               = pure (TupleType [])
+visitType (SemType (_         `As` BuiltinType (IntTypeBuiltin n)))             = pure (IntType n)
+visitType (SemType (_         `As` BuiltinType (PtrTypeBuiltin ty)))            = PtrType     <$> visitType ty
+--visitType (SemType primary)                                                     = PrimaryType <$> primaryAnalysis primary
+visitType ty = pure ty
+
+{-
 
 exprAnalysis :: MonadAnalysis m => Typed Expr -> m (Typed Expr)
 exprAnalysis (FunctionExpr function `As` _) = tymap FunctionExpr <$> functionAnalysis function
@@ -45,123 +113,10 @@ exprAnalysis (CallExpr call         `As` _) = tymap CallExpr     <$> callAnalysi
 exprAnalysis (BranchExpr branch     `As` _) = tymap BranchExpr   <$> branchAnalysis branch
 exprAnalysis (CompoundExpr compound `As` _) = tymap CompoundExpr <$> compoundAnalysis compound
 
-compoundAnalysis :: MonadAnalysis m => Typed Compound -> m (Typed Compound)
-compoundAnalysis (OpCompound op           `As` _) = tymap OpCompound      <$> opAnalysis op
-compoundAnalysis (PrimaryCompound primary `As` _) = tymap PrimaryCompound <$> primaryAnalysis primary
-
-primaryAnalysis :: MonadAnalysis m => Typed Primary -> m (Typed Primary)
-primaryAnalysis (BlockPrimary block     `As` _) = tymap BlockPrimary <$> blockAnalysis block
-primaryAnalysis (NewPrimary newID exprs `As` NewType typeID _) = do
-    typeds <- traverse exprAnalysis exprs
-    pure $ NewPrimary newID typeds `As` NewType typeID (typedTy <$> typeds)
-primaryAnalysis (NewPrimary newID exprs `As` PrimaryType primary) = do
-    typeds <- traverse exprAnalysis exprs
-    p <- primaryAnalysis primary
-    pure $ NewPrimary newID typeds `As` (typedTy p)
---primaryAnalysis (TypePrimary ty     `As` _) = tymap TypePrimary  <$> typeAnalysis ty
-primaryAnalysis (TuplePrimary exprs `As` _) = do
-    typeds <- traverse exprAnalysis exprs
-    pure $ TuplePrimary typeds `As` TupleType (typedTy <$> typeds)
---primaryAnalysis (NewPrimary _       `As` _)              = error "new analysis not implemented yet"
---    typeds <- traverse exprAnalysis exprs
---    newID <- use nextID
---    nextID %= succ
---    pure $ NewPrimary typeds `As` NewType newID (typedTy <$> typeds)
---primaryAnalysis (IdentPrimary ident `As` UnresolvedType) = error ("type resolution not implemented yet (" ++ unpack ident ++ ")")
-primaryAnalysis (IdentPrimary "function" `As` UnresolvedType) = pure (BuiltinPrimary builtin `As` BuiltinType builtin)
-  where builtin = FunctionBuiltin
-primaryAnalysis (IdentPrimary "intn"     `As` UnresolvedType) = pure (BuiltinPrimary builtin `As` BuiltinType builtin)
-  where builtin = IntNBuiltin
-primaryAnalysis (IdentPrimary "ptr"      `As` UnresolvedType) = pure (BuiltinPrimary builtin `As` BuiltinType builtin)
-  where builtin = PtrBuiltin
-primaryAnalysis (IdentPrimary name  `As` _) = do
-    hm <- use scope
-    let resolvedTy = case HM.lookup name hm of
-            Nothing          -> UnresolvedType
-            Just (Term ty _) -> ty
-    (IdentPrimary name `As`) <$> typeAnalysis resolvedTy
-primaryAnalysis (IntegerPrimary x `As` ty) = (IntegerPrimary x `As`) <$> typeAnalysis ty
-primaryAnalysis t = pure t
-
-defAnalysis :: MonadAnalysis m => Typed Def -> m (Typed Def)
-defAnalysis (Def name expr `As` _) = do
-    e <- exprAnalysis expr
-    scope %= HM.insert name (Term (typedTy e) HM.empty)
-    pure $ tymap (Def name) e
-
-foreignAnalysis :: MonadAnalysis m => Typed Foreign -> m (Typed Foreign)
-foreignAnalysis (Foreign name `As` ty) = do
-    t <- typeAnalysis ty
-    scope %= HM.insert name (Term t HM.empty) -- XXX: need scopes
-    pure (Foreign name `As` t)
-
-functionAnalysis :: MonadAnalysis m => Typed Function -> m (Typed Function)
-functionAnalysis (Function (ParamList params) expr `As` _) = do
-    args <- traverse paramAnalysis params
-    e <- exprAnalysis expr
-    paramTys <- traverse typeAnalysis (typedTy <$> args)
-    pure $ Function (ParamList args) e `As` FunctionType paramTys (typedTy e)
-
-blockAnalysis :: MonadAnalysis m => Typed Block -> m (Typed Block)
---blockAnalysis (Block (ParamList params) statements `As` _) = do
---    args <- traverse paramAnalysis params
---    s <- traverse statementAnalysis statements
---    let retTy = if null s then TupleType [] else typedTy (last s)
---        paramTys = typedTy <$> args
---    pure $ Block (ParamList args) s `As` FunctionType paramTys retTy
-blockAnalysis (Block statements `As` _) = do
-    s <- traverse statementAnalysis statements
-    let retTy = if null s then TupleType [] else typedTy (last s)
-    pure $ Block s `As` retTy
-
-opAnalysis :: MonadAnalysis m => Typed Op -> m (Typed Op)
-opAnalysis (Op op lhs rhs `As` _) = do
-    l <- primaryAnalysis lhs
-    r <- compoundAnalysis rhs
-    pure (Op op l r `As` typedTy l)
-
-callAnalysis :: MonadAnalysis m => Typed Call -> m (Typed Call)
-callAnalysis (Call callable expr `As` _) = do
-    c <- compoundAnalysis callable
-    e <- exprAnalysis expr
-    (Call c e `As`) <$> callTypeAnalysis (typedTy c) e
-
-callTypeAnalysis :: MonadAnalysis m => Type -> Typed Expr -> m Type
-callTypeAnalysis (FunctionType _ retTy) _                                                                   = typeAnalysis retTy
-callTypeAnalysis (BuiltinType FunctionBuiltin)       (CompoundExpr (PrimaryCompound primary `As` _) `As` _) = BuiltinType . Function2Builtin       <$> typeAnalysis (PrimaryType primary)
-callTypeAnalysis (BuiltinType (Function2Builtin ty)) (CompoundExpr (PrimaryCompound primary `As` _) `As` _) = BuiltinType . FunctionTypeBuiltin ty <$> typeAnalysis (PrimaryType primary)
-callTypeAnalysis (BuiltinType IntNBuiltin) _                                                                = pure (BuiltinType IntNBuiltin)
-callTypeAnalysis (BuiltinType PtrBuiltin) _                                                                 = pure (BuiltinType PtrBuiltin)
-callTypeAnalysis UnresolvedType _                                                                           = pure (UnresolvedType)
-callTypeAnalysis ty e                                                                                       = throwError $ ErrorContext "resolved type is not callable" [ppShow ty, ppShow e]
-
 branchAnalysis :: MonadAnalysis m => Typed Branch -> m (Typed Branch)
 branchAnalysis (Branch cond trueBranch falseBranch `As` _) = do
     c <- compoundAnalysis cond
     t <- exprAnalysis trueBranch
     f <- exprAnalysis falseBranch
     pure (Branch c t f `As` typedTy t)
-
-typeAnalysis :: MonadAnalysis m => Type -> m Type
-typeAnalysis (FunctionType tys retTy) = FunctionType <$> traverse typeAnalysis tys <*> typeAnalysis retTy
-typeAnalysis (PrimaryType (_         `As` BuiltinType (FunctionTypeBuiltin ty retTy))) = do
-    t <- typeAnalysis ty
-    FunctionType [t] <$> typeAnalysis retTy
-typeAnalysis (PrimaryType (_         `As` TupleType []))                               = pure (TupleType [])
-typeAnalysis (PrimaryType (_         `As` BuiltinType (IntTypeBuiltin n)))             = pure (IntType n)
-typeAnalysis (PrimaryType (_         `As` BuiltinType (PtrTypeBuiltin ty)))            = PtrType     <$> typeAnalysis ty
-typeAnalysis (PrimaryType primary)                                                     = PrimaryType <$> primaryAnalysis primary
-typeAnalysis ty = pure ty
-
-paramAnalysis :: MonadAnalysis m => Typed Param -> m (Typed Param)
-paramAnalysis (name `As` UnresolvedType) = do
-    scope %= HM.insert name (Term intType HM.empty) -- XXX: need scopes
-    pure (name `As` intType)
-  where intType = IntType 32
---paramAnalysis (name `As` UnresolvedType) = error ("parameter type inference not implemented yet (" ++ unpack name ++ ")")
-paramAnalysis (name `As` ty@(PrimaryType _)) = do
-    t <- typeAnalysis ty
-    scope %= HM.insert name (Term t HM.empty) -- XXX: need scopes
-    pure (name `As` t)
-paramAnalysis t = pure t
 -}

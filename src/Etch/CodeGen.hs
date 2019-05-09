@@ -29,7 +29,7 @@ import qualified LLVM.IRBuilder.Module      as IR
 import qualified LLVM.IRBuilder.Monad       as IR
 import Etch.CodeGen.Context
 import Etch.Types.Module
-import Etch.Types.SemanticTree
+import Etch.Types.Semantic
 
 type ModuleBuilder = IR.ModuleBuilderT (State (Context L.AST.Operand))
 type Builder = IR.IRBuilderT ModuleBuilder

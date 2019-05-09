@@ -11,14 +11,14 @@ import Control.Monad.State (runStateT)
 import Text.Show.Pretty (pPrint)
 import System.Environment (getArgs)
 import System.IO (IOMode(ReadMode), Handle, stdin, openBinaryFile)
-import qualified Etch.Analysis.Semantics as Semantics
---import qualified Etch.Analysis.Resolution as Resolution
+import Etch.Analysis
+import qualified Etch.Semantics as Semantics
+import qualified Etch.Analysis.Resolution as Resolution
 import Etch.Parser (parse)
 --import Etch.CodeGen (codeGen)
-import Etch.Types.Analysis
 import Etch.Types.ErrorContext
 --import Etch.Types.Module (defaultModule)
---import Etch.Types.SemanticTree (Typed(As))
+import Etch.Types.Semantic
 
 main :: IO ()
 main = do
@@ -36,15 +36,15 @@ compile _ contents = do
     (sem, state) <- runStateT (Semantics.analysis p) defaultAnalysisState
     liftIO (pPrint state)
     liftIO (pPrint sem)
+    (res, st) <- runResolution =<< runResolution =<< runResolution =<< runResolution =<< runResolution =<< runResolution (sem, state)
+    liftIO (pPrint st)
+    liftIO (pPrint res)
     pure ""
-    --(res, st) <- runResolution =<< runResolution =<< runResolution =<< runResolution =<< runResolution =<< runResolution (sem, state)
-    --liftIO (pPrint st)
-    --liftIO (pPrint res)
     --let defs = [ def | DefStatement def `As` _ <- sem ]
     --liftIO $ codeGen (defaultModule name defs)
 
---runResolution :: (MonadError ErrorContext m) => ([Typed Statement], AnalysisState) -> m ([Typed Statement], AnalysisState)
---runResolution (statements, state) = runStateT (Resolution.analysis statements) state
+runResolution :: (MonadError ErrorContext m) => ([Typed SemBox], AnalysisState) -> m ([Typed SemBox], AnalysisState)
+runResolution (sems, state) = runStateT (runAnalysis Resolution.analysis sems) state
 
 getHandle :: [String] -> IO Handle
 getHandle ("-"  : _) = pure stdin
